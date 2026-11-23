@@ -21,6 +21,8 @@ public partial class App : Application
         base.OnStartup(e);
 
         DispatcherUnhandledException += OnDispatcherUnhandledException;
+        AppDomain.CurrentDomain.UnhandledException += OnAppDomainUnhandledException;
+        TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
 
         _host = Host.CreateDefaultBuilder(e.Args)
             .ConfigureServices(ConfigureServices)
@@ -35,6 +37,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
+            LogError(ex);
             MessageBox.Show(
                 $"The local database could not be opened.\n\n{ex.Message}\n\nPath: {_host.Services.GetRequiredService<PosDatabase>().DatabasePath}",
                 "Restrunt POS",
@@ -65,7 +68,7 @@ public partial class App : Application
 
     private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        LogError(e.Exception);
+        LogError(e.Exception, "DispatcherUnhandledException");
         MessageBox.Show(
             $"Restrunt POS hit an unexpected problem.\n\n{e.Exception.Message}\n\nDetails were written to the local error log.",
             "Restrunt POS",
@@ -74,7 +77,26 @@ public partial class App : Application
         e.Handled = true;
     }
 
-    private static void LogError(Exception exception)
+    private static void OnAppDomainUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    {
+        if (e.ExceptionObject is Exception ex)
+        {
+            LogError(ex, $"AppDomainUnhandledException (IsTerminating={e.IsTerminating})");
+        }
+        else
+        {
+            LogError(new Exception(e.ExceptionObject?.ToString() ?? "Unknown unhandled exception"),
+                $"AppDomainUnhandledException (IsTerminating={e.IsTerminating})");
+        }
+    }
+
+    private static void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
+    {
+        LogError(e.Exception, "UnobservedTaskException");
+        e.SetObserved();
+    }
+
+    private static void LogError(Exception exception, string source = "Unhandled")
     {
         try
         {
@@ -84,7 +106,7 @@ public partial class App : Application
             Directory.CreateDirectory(folder);
             File.AppendAllText(
                 Path.Combine(folder, "error.log"),
-                $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss}] {exception}{Environment.NewLine}{Environment.NewLine}");
+                $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss}] [{source}] {exception}{Environment.NewLine}{Environment.NewLine}");
         }
         catch
         {
