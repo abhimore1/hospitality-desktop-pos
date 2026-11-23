@@ -113,6 +113,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _syncToolTip = "Check local sync queue";
     [ObservableProperty] private string _connectivityText = "";
     [ObservableProperty] private bool _isOnline;
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SyncNowCommand))]
+    private bool _isSyncing;
     [ObservableProperty] private Brush _avatarBrush = Ui.Brush("#0F766E");
     [ObservableProperty] private Brush _connectivityBrush = Ui.Brush("#16A34A");
 
@@ -185,13 +188,23 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
+    private bool CanSyncNow() => !IsSyncing;
+
+    [RelayCommand(CanExecute = nameof(CanSyncNow))]
     private async Task SyncNow()
     {
+        if (IsSyncing)
+        {
+            return;
+        }
+
         try
         {
+            IsSyncing = true;
+            SyncText = "Syncing…";
+            SyncToolTip = "Sync in progress";
+
             var result = await _sync.SyncPendingAsync();
-            RefreshSyncStatus();
 
             if (result.SyncedCount > 0)
             {
@@ -209,6 +222,11 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             _toasts.Error($"Sync could not run. {ex.Message}");
+        }
+        finally
+        {
+            IsSyncing = false;
+            RefreshSyncStatus();
         }
     }
 
