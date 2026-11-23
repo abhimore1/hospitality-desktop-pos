@@ -144,9 +144,9 @@
                                                     <TextBlock Text="{Binding Name}" FontSize="10.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
                                                 </StackPanel>
                                                 <TextBlock FontSize="9" Foreground="{StaticResource MutedLightBrush}" Margin="16,1,0,0">
-                                                    <Run Text="{Binding UnitPriceText}" />
+                                                    <Run Text="{Binding UnitPriceText, Mode=OneWay}" />
                                                     <Run Text=" · " />
-                                                    <Run Text="{Binding TaxText}" />
+                                                    <Run Text="{Binding TaxText, Mode=OneWay}" />
                                                 </TextBlock>
                                             </StackPanel>
                                             <TextBlock Grid.Column="1" Text="{Binding Qty}" FontSize="10.5" TextAlignment="Center" VerticalAlignment="Center" />

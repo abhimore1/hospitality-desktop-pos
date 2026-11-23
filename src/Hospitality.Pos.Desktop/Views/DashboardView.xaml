@@ -356,7 +356,7 @@
                                             <TextBlock Text="{Binding StockText}" FontSize="11" FontWeight="SemiBold"
                                                        Foreground="{StaticResource WarningBrush}" HorizontalAlignment="Right" />
                                         </Grid>
-                                        <ProgressBar Value="{Binding StockPercent}" Maximum="100" Style="{StaticResource MeterBar}"
+                                        <ProgressBar Value="{Binding StockPercent, Mode=OneWay}" Maximum="100" Style="{StaticResource MeterBar}"
                                                      Foreground="{StaticResource WarningBrush}" Margin="0,6,0,0" />
                                     </StackPanel>
                                 </DataTemplate>

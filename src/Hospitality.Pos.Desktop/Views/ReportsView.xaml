@@ -187,7 +187,7 @@
                                                            Width="38" TextAlignment="Right" />
                                             </StackPanel>
                                         </Grid>
-                                        <ProgressBar Value="{Binding SharePercent}" Maximum="100"
+                                        <ProgressBar Value="{Binding SharePercent, Mode=OneWay}" Maximum="100"
                                                      Style="{StaticResource MeterBar}"
                                                      Foreground="{Binding Color}"
                                                      Margin="0,6,0,0" />
@@ -220,7 +220,7 @@
                                                            Width="38" TextAlignment="Right" />
                                             </StackPanel>
                                         </Grid>
-                                        <ProgressBar Value="{Binding SharePercent}" Maximum="100"
+                                        <ProgressBar Value="{Binding SharePercent, Mode=OneWay}" Maximum="100"
                                                      Style="{StaticResource MeterBar}"
                                                      Foreground="{Binding Color}"
                                                      Margin="0,6,0,0" />

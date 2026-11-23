@@ -279,7 +279,7 @@
 
                                             <Grid Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="3" Margin="0,6,0,0">
                                                 <TextBlock FontSize="10.5" Foreground="{StaticResource MutedLightBrush}" VerticalAlignment="Center">
-                                                    <Run Text="{Binding UnitPriceText}" />
+                                                    <Run Text="{Binding UnitPriceText, Mode=OneWay}" />
                                                     <Run Text=" × " />
                                                     <Run Text="{Binding Quantity}" />
                                                 </TextBlock>

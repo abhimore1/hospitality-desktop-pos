@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Hospitality.Pos.Desktop")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+80dac2f4947795e98a7346905e15ad12803f53f8")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+aca3529c260efd614f14593476aca9b217f13c07")]
 [assembly: System.Reflection.AssemblyProductAttribute("Hospitality.Pos.Desktop")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Hospitality.Pos.Desktop")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

@@ -1,4 +1,6 @@
-﻿using System.Windows;
+﻿using System.IO;
+using System.Windows;
+using System.Windows.Threading;
 using Hospitality.Pos.Desktop.Data;
 using Hospitality.Pos.Desktop.Repositories;
 using Hospitality.Pos.Desktop.Services;
@@ -16,6 +18,8 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        DispatcherUnhandledException += OnDispatcherUnhandledException;
 
         _host = Host.CreateDefaultBuilder(e.Args)
             .ConfigureServices(ConfigureServices)
@@ -56,6 +60,35 @@ public partial class App : Application
     {
         _host?.Dispose();
         base.OnExit(e);
+    }
+
+    private static void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        LogError(e.Exception);
+        MessageBox.Show(
+            $"Restrunt POS hit an unexpected problem.\n\n{e.Exception.Message}\n\nDetails were written to the local error log.",
+            "Restrunt POS",
+            MessageBoxButton.OK,
+            MessageBoxImage.Error);
+        e.Handled = true;
+    }
+
+    private static void LogError(Exception exception)
+    {
+        try
+        {
+            var folder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "RestruntPos");
+            Directory.CreateDirectory(folder);
+            File.AppendAllText(
+                Path.Combine(folder, "error.log"),
+                $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss}] {exception}{Environment.NewLine}{Environment.NewLine}");
+        }
+        catch
+        {
+            // Logging must never mask the original failure.
+        }
     }
 
     private static void ConfigureServices(IServiceCollection services)
