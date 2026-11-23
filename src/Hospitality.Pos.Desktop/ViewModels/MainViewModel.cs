@@ -110,6 +110,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private string _dateText = "";
     [ObservableProperty] private string _planText = "";
     [ObservableProperty] private string _syncText = "";
+    [ObservableProperty] private string _syncToolTip = "Check local sync queue";
     [ObservableProperty] private string _connectivityText = "";
     [ObservableProperty] private bool _isOnline;
     [ObservableProperty] private Brush _avatarBrush = Ui.Brush("#0F766E");
@@ -275,6 +276,20 @@ public partial class MainViewModel : ObservableObject
         IsOnline = NetworkInterface.GetIsNetworkAvailable();
         ConnectivityText = IsOnline ? "Online" : "Offline";
         ConnectivityBrush = Ui.Brush(IsOnline ? "#16A34A" : "#D97706");
+
+        var lastStatus = _settings.Get("last_sync_status");
+        var lastAttemptRaw = _settings.Get("last_sync_attempt_at");
+        var lastAttemptText = "";
+        if (DateTimeOffset.TryParse(lastAttemptRaw, out var lastAttempt))
+        {
+            lastAttemptText = lastAttempt.ToLocalTime().ToString("dd MMM, h:mm tt");
+        }
+
+        SyncToolTip = string.IsNullOrWhiteSpace(lastStatus)
+            ? "Check local sync queue"
+            : string.IsNullOrWhiteSpace(lastAttemptText)
+                ? $"Last sync: {lastStatus}"
+                : $"Last sync: {lastStatus} ({lastAttemptText})";
     }
 
     private void UpdateKitchenBadge()

@@ -200,7 +200,7 @@
                                 Padding="10,0"
                                 Margin="8,0,0,0"
                                 Command="{Binding SyncNowCommand}"
-                                ToolTip="Check local sync queue">
+                                ToolTip="{Binding SyncToolTip}">
                             <StackPanel Orientation="Horizontal">
                                 <Path Data="{StaticResource IconSync}" Width="14" Height="14" Stretch="Uniform" Fill="{StaticResource MutedBrush}" VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding SyncText}" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="6,0,0,0" VerticalAlignment="Center" />
