@@ -1,5 +1,6 @@
 using Dapper;
 using Hospitality.Pos.Desktop.Data;
+using Hospitality.Pos.Desktop.Models;
 using Hospitality.Pos.Desktop.Services;
 using Microsoft.Data.Sqlite;
 
@@ -17,6 +18,68 @@ public sealed class OutboxRepository
         return connection.ExecuteScalar<int>("SELECT COUNT(*) FROM sync_outbox WHERE synced = 0;");
     }
 
+    public IReadOnlyList<OutboxEntry> GetPending(int limit = 50)
+    {
+        using var connection = _database.Open();
+        return connection.Query<OutboxEntry>(
+            """
+            SELECT id,
+                   entity,
+                   entity_id AS EntityId,
+                   operation,
+                   payload,
+                   created_at AS CreatedAt,
+                   attempts,
+                   synced,
+                   last_attempt_at AS LastAttemptAt,
+                   last_error AS LastError
+            FROM sync_outbox
+            WHERE synced = 0
+            ORDER BY id
+            LIMIT @limit;
+            """, new { limit }).ToList();
+    }
+
+    public void MarkSynced(IEnumerable<long> ids)
+    {
+        var idList = ids.Distinct().ToArray();
+        if (idList.Length == 0)
+        {
+            return;
+        }
+
+        using var connection = _database.Open();
+        connection.Execute(
+            """
+            UPDATE sync_outbox
+            SET synced = 1,
+                last_error = NULL,
+                last_attempt_at = @attemptedAt
+            WHERE id IN @ids;
+            """,
+            new { ids = idList, attemptedAt = DateTime.Now });
+    }
+
+    public void MarkAttemptFailed(IEnumerable<long> ids, string error)
+    {
+        var idList = ids.Distinct().ToArray();
+        if (idList.Length == 0)
+        {
+            return;
+        }
+
+        using var connection = _database.Open();
+        connection.Execute(
+            """
+            UPDATE sync_outbox
+            SET attempts = attempts + 1,
+                last_attempt_at = @attemptedAt,
+                last_error = @error
+            WHERE id IN @ids AND synced = 0;
+            """,
+            new { ids = idList, attemptedAt = DateTime.Now, error = TrimError(error) });
+    }
+
     public static void Enqueue(
         SqliteConnection connection,
         SqliteTransaction? transaction,
@@ -32,6 +95,17 @@ public sealed class OutboxRepository
             """,
             new { entity, entityId, operation, payload, createdAt = DateTime.Now },
             transaction);
+    }
+
+    private static string TrimError(string error)
+    {
+        if (string.IsNullOrWhiteSpace(error))
+        {
+            return "Sync failed.";
+        }
+
+        error = error.Trim();
+        return error.Length <= 500 ? error : error[..500];
     }
 }
 

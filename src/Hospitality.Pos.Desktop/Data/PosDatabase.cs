@@ -164,5 +164,29 @@ public sealed class PosDatabase
             CREATE INDEX IF NOT EXISTS ix_order_items_order ON order_items(order_id);
             CREATE INDEX IF NOT EXISTS ix_outbox_pending ON sync_outbox(synced, id);
             """);
+
+        EnsureOutboxSyncColumns(connection);
+    }
+
+    private static void EnsureOutboxSyncColumns(SqliteConnection connection)
+    {
+        var columns = connection.Query<TableColumnInfo>("PRAGMA table_info(sync_outbox);")
+            .Select(c => c.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (!columns.Contains("last_attempt_at"))
+        {
+            connection.Execute("ALTER TABLE sync_outbox ADD COLUMN last_attempt_at TEXT NULL;");
+        }
+
+        if (!columns.Contains("last_error"))
+        {
+            connection.Execute("ALTER TABLE sync_outbox ADD COLUMN last_error TEXT NULL;");
+        }
+    }
+
+    private sealed class TableColumnInfo
+    {
+        public string Name { get; set; } = "";
     }
 }

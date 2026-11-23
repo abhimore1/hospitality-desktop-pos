@@ -4,6 +4,7 @@ using System.Windows.Threading;
 using Hospitality.Pos.Desktop.Data;
 using Hospitality.Pos.Desktop.Repositories;
 using Hospitality.Pos.Desktop.Services;
+using Hospitality.Pos.Desktop.Services.Sync;
 using Hospitality.Pos.Desktop.ViewModels;
 using Hospitality.Pos.Desktop.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -110,6 +111,8 @@ public partial class App : Application
         services.AddSingleton<DataChangeNotifier>();
         services.AddSingleton<AppNavigation>();
         services.AddSingleton<IBillPresenter, BillPresenter>();
+        services.AddSingleton<ISyncTransport, NoopSyncTransport>();
+        services.AddSingleton<ISyncCoordinator, SyncCoordinator>();
 
         // View models
         services.AddSingleton<DashboardViewModel>();

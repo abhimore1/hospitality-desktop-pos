@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Hospitality.Pos.Desktop.Repositories;
 using Hospitality.Pos.Desktop.Services;
+using Hospitality.Pos.Desktop.Services.Sync;
 using Hospitality.Pos.Desktop.Views;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -17,6 +18,7 @@ public partial class MainViewModel : ObservableObject
     private readonly AppSession _session;
     private readonly SettingsRepository _settings;
     private readonly OutboxRepository _outbox;
+    private readonly ISyncCoordinator _sync;
     private readonly ToastService _toasts;
     private readonly IServiceProvider _services;
     private readonly DashboardViewModel _dashboard;
@@ -34,6 +36,7 @@ public partial class MainViewModel : ObservableObject
         AppSession session,
         SettingsRepository settings,
         OutboxRepository outbox,
+        ISyncCoordinator sync,
         ToastService toasts,
         DataChangeNotifier notifier,
         AppNavigation navigation,
@@ -49,6 +52,7 @@ public partial class MainViewModel : ObservableObject
         _session = session;
         _settings = settings;
         _outbox = outbox;
+        _sync = sync;
         _toasts = toasts;
         _services = services;
         _dashboard = dashboard;
@@ -181,12 +185,30 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void SyncNow()
+    private async Task SyncNow()
     {
-        var pending = _outbox.CountPending();
-        _toasts.Info(pending == 0
-            ? "Everything is saved locally. No pending changes."
-            : $"{pending} change{(pending == 1 ? "" : "s")} queued in the local outbox. Connect the backend to sync.");
+        try
+        {
+            var result = await _sync.SyncPendingAsync();
+            RefreshSyncStatus();
+
+            if (result.SyncedCount > 0)
+            {
+                _toasts.Success(result.Message);
+            }
+            else if (result.Attempted && result.FailedCount > 0)
+            {
+                _toasts.Warning(result.Message);
+            }
+            else
+            {
+                _toasts.Info(result.Message);
+            }
+        }
+        catch (Exception ex)
+        {
+            _toasts.Error($"Sync could not run. {ex.Message}");
+        }
     }
 
     private void OnNavigationRequested(string key, object? argument)
