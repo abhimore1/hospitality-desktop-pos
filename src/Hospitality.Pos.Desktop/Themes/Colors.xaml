@@ -1,0 +1,75 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Brand: deep teal, inspired by calm hospitality interiors -->
+    <SolidColorBrush x:Key="Brand950Brush" Color="#042F2C" />
+    <SolidColorBrush x:Key="Brand900Brush" Color="#073B35" />
+    <SolidColorBrush x:Key="Brand800Brush" Color="#115E59" />
+    <SolidColorBrush x:Key="Brand700Brush" Color="#0F766E" />
+    <SolidColorBrush x:Key="Brand600Brush" Color="#0D9488" />
+    <SolidColorBrush x:Key="Brand500Brush" Color="#14B8A6" />
+    <SolidColorBrush x:Key="Brand200Brush" Color="#99F6E4" />
+    <SolidColorBrush x:Key="Brand100Brush" Color="#CCFBF1" />
+    <SolidColorBrush x:Key="Brand50Brush" Color="#F0FDFA" />
+    <SolidColorBrush x:Key="MintBrush" Color="#5EEAD4" />
+
+    <LinearGradientBrush x:Key="SidebarBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Offset="0" Color="#052F2B" />
+        <GradientStop Offset="0.55" Color="#08413A" />
+        <GradientStop Offset="1" Color="#0E5F56" />
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="LoginBrandBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Offset="0" Color="#042F2C" />
+        <GradientStop Offset="0.5" Color="#0A4A42" />
+        <GradientStop Offset="1" Color="#0F766E" />
+    </LinearGradientBrush>
+
+    <LinearGradientBrush x:Key="HeroAccentBrush" StartPoint="0,0" EndPoint="1,0">
+        <GradientStop Offset="0" Color="#0F766E" />
+        <GradientStop Offset="1" Color="#14B8A6" />
+    </LinearGradientBrush>
+
+    <!-- Surfaces -->
+    <SolidColorBrush x:Key="SurfaceBaseBrush" Color="#F5F7F8" />
+    <SolidColorBrush x:Key="SurfaceCardBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="SurfaceMutedBrush" Color="#F1F5F9" />
+    <SolidColorBrush x:Key="SurfaceSunkenBrush" Color="#E9EEF2" />
+    <SolidColorBrush x:Key="SurfaceTintBrush" Color="#F7FBFA" />
+    <SolidColorBrush x:Key="BorderBrush" Color="#E3E9EE" />
+    <SolidColorBrush x:Key="BorderStrongBrush" Color="#CBD5E1" />
+    <SolidColorBrush x:Key="DividerBrush" Color="#EDF1F4" />
+
+    <!-- Text -->
+    <SolidColorBrush x:Key="InkBrush" Color="#0F172A" />
+    <SolidColorBrush x:Key="InkSoftBrush" Color="#334155" />
+    <SolidColorBrush x:Key="MutedBrush" Color="#64748B" />
+    <SolidColorBrush x:Key="MutedLightBrush" Color="#94A3B8" />
+    <SolidColorBrush x:Key="OnBrandBrush" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="OnBrandMutedBrush" Color="#A7C9C4" />
+
+    <!-- Semantic -->
+    <SolidColorBrush x:Key="SuccessBrush" Color="#15803D" />
+    <SolidColorBrush x:Key="SuccessStrongBrush" Color="#166534" />
+    <SolidColorBrush x:Key="SuccessSoftBrush" Color="#DCFCE7" />
+    <SolidColorBrush x:Key="WarningBrush" Color="#B45309" />
+    <SolidColorBrush x:Key="WarningStrongBrush" Color="#92400E" />
+    <SolidColorBrush x:Key="WarningSoftBrush" Color="#FEF3C7" />
+    <SolidColorBrush x:Key="DangerBrush" Color="#B91C1C" />
+    <SolidColorBrush x:Key="DangerStrongBrush" Color="#991B1B" />
+    <SolidColorBrush x:Key="DangerSoftBrush" Color="#FEE2E2" />
+    <SolidColorBrush x:Key="InfoBrush" Color="#0369A1" />
+    <SolidColorBrush x:Key="InfoSoftBrush" Color="#E0F2FE" />
+    <SolidColorBrush x:Key="VioletBrush" Color="#6D28D9" />
+    <SolidColorBrush x:Key="VioletSoftBrush" Color="#EDE9FE" />
+    <SolidColorBrush x:Key="AmberBrush" Color="#D97706" />
+    <SolidColorBrush x:Key="AmberSoftBrush" Color="#FEF3C7" />
+
+    <!-- Overlays -->
+    <SolidColorBrush x:Key="ScrimBrush" Color="#990B1F1C" />
+    <SolidColorBrush x:Key="NavHoverBrush" Color="#14FFFFFF" />
+    <SolidColorBrush x:Key="NavSelectedBrush" Color="#24FFFFFF" />
+    <SolidColorBrush x:Key="PasswordDotBrush" Color="#0F766E" />
+
+    <Color x:Key="ShadowColor">#0F172A</Color>
+</ResourceDictionary>
