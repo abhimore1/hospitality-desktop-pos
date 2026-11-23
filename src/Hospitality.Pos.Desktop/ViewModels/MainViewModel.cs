@@ -234,7 +234,7 @@ public partial class MainViewModel : ObservableObject
         _session.TerminalName = config.TerminalName;
 
         OutletName = config.OutletName;
-        TerminalText = $"{config.TerminalName} • {_session.TerminalName}";
+        TerminalText = config.TerminalName;
         var staff = _session.CurrentStaff;
         StaffName = staff?.Name ?? "Not signed in";
         StaffRole = staff?.RoleLabel ?? "";

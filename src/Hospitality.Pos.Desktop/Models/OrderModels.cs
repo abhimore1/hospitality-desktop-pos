@@ -63,6 +63,9 @@ public sealed class BillLine
     public long LineTotalPaise { get; set; }
     public bool IsVeg { get; set; }
     public int TaxBps { get; set; }
+    public string UnitPriceText => Services.Inr.Format(UnitPricePaise);
+    public string LineTotalText => Services.Inr.Format(LineTotalPaise);
+    public string TaxText => $"{TaxBps / 100m:0.##}% GST";
 }
 
 public sealed record OrderLineInput(
@@ -96,4 +99,13 @@ public sealed class BillDocument
     public long RoundOffPaise { get; set; }
     public long TotalPaise { get; set; }
     public List<BillLine> Lines { get; set; } = [];
+
+    public string GstRateText => $"{GstRateBps / 100m:0.##}%";
+    public string CgstLabel => $"CGST @ {GstRateBps / 200m:0.##}%";
+    public string SgstLabel => $"SGST @ {GstRateBps / 200m:0.##}%";
+    public string PaidAtText => PaidAt.ToString("dd MMM yyyy, h:mm tt");
+    public string TableText => string.IsNullOrWhiteSpace(TableLabel) ? "—" : TableLabel;
+    public string PaymentText => string.IsNullOrWhiteSpace(PaymentMethod) ? "Unpaid" : PaymentMethod;
+    public bool HasDiscount => DiscountPaise > 0;
+    public string ItemCountText => $"{Lines.Sum(line => line.Qty)} items";
 }

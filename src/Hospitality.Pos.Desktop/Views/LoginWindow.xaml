@@ -164,7 +164,8 @@
                     <ListBox ItemsSource="{Binding Staff}"
                              SelectedItem="{Binding SelectedStaff, Mode=TwoWay}"
                              ItemContainerStyle="{StaticResource StaffListItem}"
-                             Height="168"
+                             Height="180"
+                             ScrollViewer.VerticalScrollBarVisibility="Disabled"
                              Background="Transparent"
                              BorderThickness="0">
                         <ListBox.ItemsPanel>

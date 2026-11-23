@@ -1,0 +1,170 @@
+<UserControl x:Class="Hospitality.Pos.Desktop.Views.TablesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontFamily="{StaticResource FontBody}">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource CardTight}" Margin="0,0,6,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="36" Height="36" CornerRadius="11" Background="{StaticResource WarningSoftBrush}" VerticalAlignment="Center">
+                        <Path Data="{StaticResource IconTables}" Width="17" Height="17" Stretch="Uniform"
+                              Fill="{StaticResource WarningBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="11,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="Occupied" Style="{StaticResource TextCaption}" />
+                        <TextBlock Text="{Binding OccupiedText}" Style="{StaticResource TextNumericSmall}" FontSize="22" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1" Style="{StaticResource CardTight}" Margin="6,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="36" Height="36" CornerRadius="11" Background="{StaticResource SuccessSoftBrush}" VerticalAlignment="Center">
+                        <Path Data="{StaticResource IconCheck}" Width="17" Height="17" Stretch="Uniform"
+                              Fill="{StaticResource SuccessBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="11,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="Available" Style="{StaticResource TextCaption}" />
+                        <TextBlock Text="{Binding AvailableText}" Style="{StaticResource TextNumericSmall}" FontSize="22" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="2" Style="{StaticResource CardTight}" Margin="6,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="36" Height="36" CornerRadius="11" Background="{StaticResource Brand50Brush}" VerticalAlignment="Center">
+                        <Path Data="{StaticResource IconBilling}" Width="17" Height="17" Stretch="Uniform"
+                              Fill="{StaticResource Brand700Brush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="11,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="Open amount" Style="{StaticResource TextCaption}" />
+                        <TextBlock Text="{Binding OpenAmountText}" Style="{StaticResource TextNumericSmall}" FontSize="22" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="3" Style="{StaticResource CardTight}" Margin="6,0,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="36" Height="36" CornerRadius="11" Background="{StaticResource VioletSoftBrush}" VerticalAlignment="Center">
+                        <Path Data="{StaticResource IconStore}" Width="17" Height="17" Stretch="Uniform"
+                              Fill="{StaticResource VioletBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="11,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="Floor plan" Style="{StaticResource TextCaption}" />
+                        <TextBlock Text="{Binding TotalText}" Style="{StaticResource TextNumericSmall}" FontSize="22" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <ScrollViewer Grid.Row="1" Style="{StaticResource PlainScrollViewer}">
+            <ItemsControl ItemsSource="{Binding Sections}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource Card}" Margin="0,0,0,14" Padding="18">
+                            <StackPanel>
+                                <Grid Margin="0,0,0,14">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}" Style="{StaticResource TextH3}" />
+                                        <TextBlock Text="{Binding Summary}" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <Border Style="{StaticResource Pill}" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                        <TextBlock Text="DINE-IN" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+                                    </Border>
+                                </Grid>
+
+                                <ItemsControl ItemsSource="{Binding Tables}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <UniformGrid Columns="4" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Style="{StaticResource TableCardButton}"
+                                                    Height="128"
+                                                    Margin="0,0,10,10"
+                                                    Command="{Binding DataContext.OpenTableCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}">
+                                                <Grid Margin="14">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="4" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Width="4" CornerRadius="2" Background="{Binding AccentBrush}"
+                                                            VerticalAlignment="Stretch" Margin="0,2,10,2" />
+                                                    <Grid Grid.Column="1">
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto" />
+                                                            <RowDefinition Height="Auto" />
+                                                            <RowDefinition Height="*" />
+                                                            <RowDefinition Height="Auto" />
+                                                        </Grid.RowDefinitions>
+
+                                                        <Grid>
+                                                            <TextBlock Text="{Binding Name}" FontFamily="{StaticResource FontDisplay}"
+                                                                       FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                                            <Border Background="{Binding StatusBackground}" CornerRadius="9" Padding="8,3"
+                                                                    HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding StatusLabel}" FontSize="9.5" FontWeight="SemiBold"
+                                                                           Foreground="{Binding StatusBrush}" />
+                                                            </Border>
+                                                        </Grid>
+
+                                                        <TextBlock Grid.Row="1" Text="{Binding SeatsText}" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+
+                                                        <StackPanel Grid.Row="2" VerticalAlignment="Center" Margin="0,6,0,0">
+                                                            <TextBlock Text="{Binding AmountText}" FontSize="17" FontWeight="SemiBold"
+                                                                       Foreground="{StaticResource InkBrush}" />
+                                                            <TextBlock Text="{Binding ElapsedText}" FontSize="10.5"
+                                                                       Foreground="{StaticResource MutedLightBrush}" />
+                                                        </StackPanel>
+
+                                                        <Grid Grid.Row="3" Margin="0,6,0,0">
+                                                            <TextBlock Text="{Binding ActionLabel}" FontSize="11" FontWeight="SemiBold"
+                                                                       Foreground="{StaticResource Brand700Brush}" VerticalAlignment="Center" />
+                                                            <Path Data="{StaticResource IconArrowRight}" Width="13" Height="13" Stretch="Uniform"
+                                                                  Fill="{StaticResource Brand700Brush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                        </Grid>
+                                                    </Grid>
+                                                </Grid>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

@@ -88,9 +88,9 @@ public partial class BillingViewModel : ObservableObject, IRefreshable
 
         PaymentMethods = new ObservableCollection<SelectableChip>
         {
-            new() { Key = "UPI", Label = "UPI" },
-            new() { Key = "Cash", Label = "Cash" },
-            new() { Key = "Card", Label = "Card" }
+            new() { Key = "UPI", Label = "UPI", Icon = Ui.Icon("IconUpi") },
+            new() { Key = "Cash", Label = "Cash", Icon = Ui.Icon("IconCash") },
+            new() { Key = "Card", Label = "Card", Icon = Ui.Icon("IconCard") }
         };
         PaymentMethods[0].IsSelected = true;
 

@@ -25,6 +25,8 @@ public sealed class MenuItem
 
     public string PriceText => Services.Inr.Format(PricePaise);
     public string TaxText => $"{TaxBps / 100m:0.##}% GST";
+    public string AvailabilityState => IsAvailable ? "On the menu" : "Sold out";
+    public string AvailabilityAction => IsAvailable ? "Mark sold out" : "Mark available";
     public string Initials => string.IsNullOrWhiteSpace(Name)
         ? "?"
         : string.Concat(Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(part => part[0])).ToUpperInvariant();

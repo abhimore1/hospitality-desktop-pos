@@ -665,4 +665,25 @@
         <Setter Property="Height" Value="1" />
         <Setter Property="Background" Value="{StaticResource DividerBrush}" />
     </Style>
+
+    <Style x:Key="MeterBar" TargetType="ProgressBar">
+        <Setter Property="Height" Value="6" />
+        <Setter Property="Background" Value="{StaticResource SurfaceMutedBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource Brand600Brush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ProgressBar">
+                    <Grid>
+                        <Border Background="{TemplateBinding Background}" CornerRadius="3" />
+                        <Border x:Name="PART_Track" />
+                        <Border x:Name="PART_Indicator"
+                                HorizontalAlignment="Left"
+                                Background="{TemplateBinding Foreground}"
+                                CornerRadius="3" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
 </ResourceDictionary>

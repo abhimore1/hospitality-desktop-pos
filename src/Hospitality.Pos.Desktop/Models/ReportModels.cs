@@ -41,6 +41,7 @@ public sealed class MixRow
     public string TotalText => Services.Inr.Format(TotalPaise);
     public double SharePercent => Math.Round(Share * 100);
     public double ShareWidth => Math.Max(4, Math.Round(Share * 120));
+    public string ShareText => $"{SharePercent:0}%";
     public string CountText => $"{Count} bill{(Count == 1 ? "" : "s")}";
 }
 

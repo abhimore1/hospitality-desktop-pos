@@ -1,3 +1,4 @@
+using System.Windows;
 using System.Windows.Media;
 
 namespace Hospitality.Pos.Desktop.ViewModels;
@@ -19,4 +20,6 @@ public static class Ui
         Cache[hex] = brush;
         return brush;
     }
+
+    public static Geometry? Icon(string key) => Application.Current?.TryFindResource(key) as Geometry;
 }

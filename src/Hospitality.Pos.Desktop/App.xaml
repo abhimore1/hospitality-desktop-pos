@@ -16,6 +16,8 @@
             <conv:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
             <conv:StringToVisibilityConverter x:Key="StringToVisibility" />
             <conv:NullToVisibilityConverter x:Key="NullToVisibility" />
+            <conv:MoneyConverter x:Key="MoneyConverter" />
+            <conv:VegBrushConverter x:Key="VegBrushConverter" />
 
             <DataTemplate DataType="{x:Type vm:DashboardViewModel}">
                 <views:DashboardView />

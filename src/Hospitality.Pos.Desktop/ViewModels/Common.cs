@@ -12,6 +12,7 @@ public partial class SelectableChip : ObservableObject
 {
     public string Key { get; init; } = "";
     public string Label { get; init; } = "";
+    public System.Windows.Media.Geometry? Icon { get; init; }
     [ObservableProperty] private bool _isSelected;
 }
 
