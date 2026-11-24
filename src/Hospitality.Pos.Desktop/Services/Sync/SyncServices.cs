@@ -50,46 +50,72 @@ public sealed class SyncCoordinator : ISyncCoordinator
         _settings = settings;
     }
 
-    public Task<SyncRunResult> SyncPendingAsync(CancellationToken cancellationToken = default)
+    public async Task<SyncRunResult> SyncPendingAsync(CancellationToken cancellationToken = default)
     {
-        var pendingBefore = _outbox.CountPending();
-        if (pendingBefore == 0)
+        try
         {
-            RecordSyncAttempt("No pending changes.");
-            return Task.FromResult(new SyncRunResult(
-                _transport.IsConfigured,
+            var pendingBefore = _outbox.CountPending();
+            if (pendingBefore == 0)
+            {
+                RecordSyncAttempt("No pending changes.");
+                return new SyncRunResult(
+                    _transport.IsConfigured,
+                    Attempted: false,
+                    PendingBefore: 0,
+                    SyncedCount: 0,
+                    FailedCount: 0,
+                    Message: "Everything is saved locally. No pending changes.");
+            }
+
+            if (!_transport.IsConfigured)
+            {
+                RecordSyncAttempt("Backend sync is not configured yet.");
+                return new SyncRunResult(
+                    TransportConfigured: false,
+                    Attempted: false,
+                    PendingBefore: pendingBefore,
+                    SyncedCount: 0,
+                    FailedCount: 0,
+                    Message: $"{pendingBefore} change{(pendingBefore == 1 ? "" : "s")} queued locally. Backend sync is not configured yet.");
+            }
+
+            if (!NetworkInterface.GetIsNetworkAvailable())
+            {
+                RecordSyncAttempt("Offline.");
+                return new SyncRunResult(
+                    TransportConfigured: true,
+                    Attempted: false,
+                    PendingBefore: pendingBefore,
+                    SyncedCount: 0,
+                    FailedCount: 0,
+                    Message: $"{pendingBefore} change{(pendingBefore == 1 ? "" : "s")} queued locally. Connect to the internet to sync.");
+            }
+
+            return await SyncPendingCoreAsync(pendingBefore, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            RecordSyncAttempt("Sync cancelled.");
+            return new SyncRunResult(
+                TransportConfigured: _transport.IsConfigured,
                 Attempted: false,
-                PendingBefore: 0,
+                PendingBefore: _outbox.SafeCountPending(),
                 SyncedCount: 0,
                 FailedCount: 0,
-                Message: "Everything is saved locally. No pending changes."));
+                Message: "Sync cancelled.");
         }
-
-        if (!_transport.IsConfigured)
+        catch (Exception ex)
         {
-            RecordSyncAttempt("Backend sync is not configured yet.");
-            return Task.FromResult(new SyncRunResult(
-                TransportConfigured: false,
-                Attempted: false,
-                PendingBefore: pendingBefore,
+            var pending = _outbox.SafeCountPending();
+            RecordSyncAttempt("Sync failed.");
+            return new SyncRunResult(
+                TransportConfigured: _transport.IsConfigured,
+                Attempted: true,
+                PendingBefore: pending,
                 SyncedCount: 0,
                 FailedCount: 0,
-                Message: $"{pendingBefore} change{(pendingBefore == 1 ? "" : "s")} queued locally. Backend sync is not configured yet."));
+                Message: $"Sync could not run. {ex.Message}");
         }
-
-        if (!NetworkInterface.GetIsNetworkAvailable())
-        {
-            RecordSyncAttempt("Offline.");
-            return Task.FromResult(new SyncRunResult(
-                TransportConfigured: true,
-                Attempted: false,
-                PendingBefore: pendingBefore,
-                SyncedCount: 0,
-                FailedCount: 0,
-                Message: $"{pendingBefore} change{(pendingBefore == 1 ? "" : "s")} queued locally. Connect to the internet to sync."));
-        }
-
-        return SyncPendingCoreAsync(pendingBefore, cancellationToken);
     }
 
     private async Task<SyncRunResult> SyncPendingCoreAsync(int pendingBefore, CancellationToken cancellationToken)

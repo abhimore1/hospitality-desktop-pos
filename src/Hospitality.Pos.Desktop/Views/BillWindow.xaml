@@ -64,6 +64,11 @@
                     </Border.Effect>
 
                     <StackPanel>
+                        <Border Background="#FEE2E2" BorderBrush="#DC2626" BorderThickness="1" CornerRadius="4" Padding="8,4" Margin="0,0,0,10"
+                                Visibility="{Binding IsDuplicate, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="{Binding DuplicateNotice}" Foreground="#DC2626" FontWeight="Bold" FontSize="10" HorizontalAlignment="Center" />
+                        </Border>
+
                         <TextBlock Text="TAX INVOICE" FontSize="9.5" FontWeight="Bold"
                                    Foreground="{StaticResource MutedLightBrush}"
                                    HorizontalAlignment="Center" />
@@ -111,6 +116,24 @@
                                 <TextBlock Text="{Binding PaymentText}" FontSize="10.5" FontWeight="SemiBold" Margin="0,2,0,0" />
                             </StackPanel>
                         </Grid>
+
+                        <StackPanel Margin="0,8,0,0" Visibility="{Binding HasCustomerInfo, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="CUSTOMER" FontSize="8.5" FontWeight="SemiBold" Foreground="{StaticResource MutedLightBrush}" />
+                            <TextBlock FontSize="10" Margin="0,2,0,0">
+                                <Run Text="{Binding CustomerName, Mode=OneWay}" FontWeight="SemiBold" />
+                                <Run Text=" · " />
+                                <Run Text="{Binding CustomerPhone, Mode=OneWay}" />
+                            </TextBlock>
+                            <TextBlock FontSize="9" Foreground="{StaticResource MutedBrush}" Margin="0,1,0,0"
+                                       Visibility="{Binding HasCustomerGstin, Converter={StaticResource BoolToVisibility}}">
+                                <Run Text="GSTIN: " /><Run Text="{Binding CustomerGstin, Mode=OneWay}" FontFamily="{StaticResource FontMono}" />
+                            </TextBlock>
+                        </StackPanel>
+
+                        <StackPanel Margin="0,6,0,0" Visibility="{Binding HasRoomNumber, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="HOTEL ROOM" FontSize="8.5" FontWeight="SemiBold" Foreground="{StaticResource MutedLightBrush}" />
+                            <TextBlock Text="{Binding RoomNumber, StringFormat=Room {0} (Charged to folio)}" FontSize="10" FontWeight="SemiBold" Margin="0,2,0,0" />
+                        </StackPanel>
 
                         <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,12,0,8" />
 

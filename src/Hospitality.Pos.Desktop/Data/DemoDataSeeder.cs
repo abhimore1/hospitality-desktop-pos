@@ -60,6 +60,7 @@ public static class DemoDataSeeder
         SeedStaff(connection, transaction);
         SeedTables(connection, transaction);
         SeedInventory(connection, transaction);
+        SeedHotelRooms(connection, transaction);
         SeedDemoOrders(connection, transaction);
 
         UpsertSetting(connection, transaction, "seed_version", "1");
@@ -203,6 +204,34 @@ public static class DemoDataSeeder
                 VALUES (@id, @name, @unit, @stock, @low, @now);
                 """,
                 new { id, name, unit, stock, low, now = DateTime.Now }, transaction);
+        }
+    }
+
+    public static void SeedHotelRooms(SqliteConnection connection, SqliteTransaction? transaction)
+    {
+        var count = connection.ExecuteScalar<int>("SELECT COUNT(*) FROM hotel_rooms;", transaction: transaction);
+        if (count > 0)
+        {
+            return;
+        }
+
+        var rooms = new[]
+        {
+            (1, "101", "Rohan Mehra", "+91 98111 22334", "occupied", 0L, DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd HH:mm")),
+            (2, "102", "Priya Sharma", "+91 98222 33445", "occupied", 0L, DateTime.Today.ToString("yyyy-MM-dd HH:mm")),
+            (3, "201", "Amit Verma", "+91 98333 44556", "occupied", 0L, DateTime.Today.AddDays(-2).ToString("yyyy-MM-dd HH:mm")),
+            (4, "202", "Kavita Reddy", "+91 98444 55667", "vacant", 0L, DateTime.Today.ToString("yyyy-MM-dd HH:mm")),
+            (5, "301", "Dr. K. Saxena", "+91 98555 66778", "occupied", 0L, DateTime.Today.AddDays(-1).ToString("yyyy-MM-dd HH:mm"))
+        };
+
+        foreach (var (id, roomNumber, guestName, phone, status, folio, checkIn) in rooms)
+        {
+            connection.Execute(
+                """
+                INSERT OR IGNORE INTO hotel_rooms (id, room_number, guest_name, phone, status, folio_balance_paise, check_in)
+                VALUES (@id, @roomNumber, @guestName, @phone, @status, @folio, @checkIn);
+                """,
+                new { id, roomNumber, guestName, phone, status, folio, checkIn }, transaction);
         }
     }
 
@@ -368,6 +397,159 @@ public static class DemoDataSeeder
                     lineTotal = line.UnitPricePaise * line.Quantity
                 }, transaction);
         }
+    }
+
+    /// <summary>
+    /// Keeps the demo outlet believable when the prototype is opened on a later day.
+    /// This only runs when demo_mode=1; production data is never touched.
+    /// </summary>
+    public static void EnsureDemoDay(SqliteConnection connection)
+    {
+        SeedHotelRooms(connection, null);
+
+        if (GetSetting(connection, "demo_mode") != "1")
+        {
+            return;
+        }
+
+        var today = DateTime.Today.ToString("yyyy-MM-dd");
+        if (GetSetting(connection, "demo_seed_date") == today)
+        {
+            return;
+        }
+
+        using var transaction = connection.BeginTransaction();
+
+        var items = connection.Query<MenuItem>(
+            "SELECT id, name, price_paise, tax_bps, is_veg FROM menu_items;", transaction: transaction).ToList();
+        if (items.Count == 0)
+        {
+            transaction.Rollback();
+            return;
+        }
+
+        // Re-time yesterday's seeded tickets so the kitchen never opens on day-old orders.
+        connection.Execute(
+            """
+            UPDATE orders
+            SET created_at = datetime('now', 'localtime', '-' || (
+                SELECT CASE bill_no
+                    WHEN 'KOT-1041' THEN 14
+                    WHEN 'KOT-1042' THEN 6
+                    WHEN 'KOT-1043' THEN 31
+                    WHEN 'KOT-1044' THEN 22
+                    ELSE 18
+                END) || ' minutes')
+            WHERE status = 'open'
+              AND date(created_at) < date('now', 'localtime');
+            """, transaction: transaction);
+
+        var paidToday = connection.ExecuteScalar<int>(
+            "SELECT COUNT(*) FROM orders WHERE status = 'paid' AND date(paid_at) = date('now', 'localtime');",
+            transaction: transaction);
+
+        if (paidToday == 0)
+        {
+            var random = new Random(int.Parse(DateTime.Today.ToString("yyyyMMdd")));
+            var fy = FinancialYearLabel(DateTime.Today);
+            var prefix = GetSetting(connection, "bill_prefix");
+            if (string.IsNullOrWhiteSpace(prefix))
+            {
+                prefix = "INV";
+            }
+
+            var sequence = connection.ExecuteScalar<int>(
+                "SELECT CAST(COALESCE((SELECT value FROM app_settings WHERE key = 'bill_sequence'), '0') AS INTEGER);",
+                transaction: transaction);
+
+            var dayStart = DateTime.Today.AddMinutes(10);
+            var latest = DateTime.Now.AddMinutes(-2);
+            if (latest <= dayStart)
+            {
+                latest = dayStart.AddMinutes(30);
+            }
+
+            const int billCount = 38;
+            var span = latest - dayStart;
+            var usedTableIds = new HashSet<int>();
+
+            for (var index = 0; index < billCount; index++)
+            {
+                sequence++;
+                var orderId = Guid.NewGuid().ToString();
+                var created = dayStart + span * ((index + random.NextDouble() * 0.7) / billCount);
+                var lineCount = random.Next(1, 5);
+                var chosen = items.OrderBy(_ => random.Next()).Take(lineCount).ToList();
+                var lines = chosen
+                    .Select(item => new TaxLine(item.PricePaise, random.Next(1, 3), item.TaxBps))
+                    .ToList();
+                var totals = TaxCalculator.Calculate(lines, 0, true);
+
+                var orderType = index % 9 == 0 ? "Delivery" : index % 5 == 0 ? "Takeaway" : "Dine-in";
+                int? tableId = null;
+                if (orderType == "Dine-in")
+                {
+                    // Spread dine-in checks over the floor instead of always picking table 1-14.
+                    for (var attempt = 0; attempt < 14; attempt++)
+                    {
+                        var candidate = random.Next(1, 15);
+                        if (usedTableIds.Add(candidate) || usedTableIds.Count >= 14)
+                        {
+                            tableId = candidate;
+                            break;
+                        }
+                    }
+                }
+
+                var payment = random.Next(0, 10) switch
+                {
+                    <= 4 => "UPI",
+                    <= 7 => "Cash",
+                    _ => "Card"
+                };
+
+                var paidAt = created.AddMinutes(Math.Min(35, Math.Max(4, (latest - created).TotalMinutes)));
+                var billNo = $"{prefix}/{fy}/{sequence:0000}";
+
+                connection.Execute(
+                    """
+                    INSERT INTO orders
+                        (id, bill_no, order_type, table_id, status, kot_status, cashier_name, terminal,
+                         subtotal_paise, discount_paise, tax_paise, cgst_paise, sgst_paise, round_off_paise,
+                         total_paise, gst_rate_bps, prices_include_tax, payment_method, note,
+                         created_at, paid_at, synced)
+                    VALUES
+                        (@id, @billNo, @orderType, @tableId, 'paid', 'served', 'Rahul Patil', 'Counter 01',
+                         @subtotal, @discount, @tax, @cgst, @sgst, @roundOff,
+                         @total, 500, 1, @payment, '',
+                         @created, @paidAt, 1);
+                    """,
+                    new
+                    {
+                        id = orderId,
+                        billNo,
+                        orderType,
+                        tableId,
+                        subtotal = totals.TaxablePaise,
+                        discount = totals.DiscountPaise,
+                        tax = totals.TaxPaise,
+                        cgst = totals.CgstPaise,
+                        sgst = totals.SgstPaise,
+                        roundOff = totals.RoundOffPaise,
+                        total = totals.TotalPaise,
+                        payment,
+                        created,
+                        paidAt
+                    }, transaction);
+
+                InsertItems(connection, transaction, orderId, chosen, lines);
+            }
+
+            UpsertSetting(connection, transaction, "bill_sequence", sequence.ToString());
+        }
+
+        UpsertSetting(connection, transaction, "demo_seed_date", today);
+        transaction.Commit();
     }
 
     public static string FinancialYearLabel(DateTime date)

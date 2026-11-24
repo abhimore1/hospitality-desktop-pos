@@ -35,15 +35,35 @@
                     <TextBlock Text="  ·  tap a card to flip availability" Style="{StaticResource TextCaption}" />
                 </StackPanel>
             </StackPanel>
-            <Grid Width="288" Height="44" HorizontalAlignment="Right" VerticalAlignment="Center">
-                <Path Data="{StaticResource IconSearch}" Width="15" Height="15" Stretch="Uniform"
-                      Fill="{StaticResource MutedLightBrush}"
-                      HorizontalAlignment="Left" VerticalAlignment="Center" Margin="15,0,0,0"
-                      IsHitTestVisible="False" />
-                <TextBox Style="{StaticResource SearchTextBox}"
-                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                         Tag="Search the menu…" Height="44" />
-            </Grid>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button Style="{StaticResource SecondaryButton}" Height="40" Margin="0,0,8,0"
+                        Command="{Binding ImportCsvCommand}" ToolTip="Import categories and items from CSV">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource IconUpload}" Width="14" Height="14" Stretch="Uniform"
+                              Fill="{StaticResource InkSoftBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="Import CSV" FontSize="12" FontWeight="SemiBold" Margin="6,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <Button Style="{StaticResource SecondaryButton}" Height="40" Margin="0,0,12,0"
+                        Command="{Binding ExportCsvCommand}" ToolTip="Export entire menu to CSV">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource IconDownload}" Width="14" Height="14" Stretch="Uniform"
+                              Fill="{StaticResource InkSoftBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="Export CSV" FontSize="12" FontWeight="SemiBold" Margin="6,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+
+                <Grid Width="260" Height="44">
+                    <Path Data="{StaticResource IconSearch}" Width="15" Height="15" Stretch="Uniform"
+                          Fill="{StaticResource MutedLightBrush}"
+                          HorizontalAlignment="Left" VerticalAlignment="Center" Margin="15,0,0,0"
+                          IsHitTestVisible="False" />
+                    <TextBox Style="{StaticResource SearchTextBox}"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                             Tag="Search the menu…" Height="44" />
+                </Grid>
+            </StackPanel>
         </Grid>
 
         <ItemsControl Grid.Row="1" ItemsSource="{Binding Categories}" Margin="0,0,0,4">
@@ -101,11 +121,11 @@
 
                                     <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,5,0,0">
                                         <Ellipse Width="6" Height="6" Fill="{Binding CategoryColor}" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding CategoryName}" FontSize="10.5" Foreground="{StaticResource MutedLightBrush}" Margin="6,0,0,0" />
-                                        <TextBlock Text="  ·  " FontSize="10.5" Foreground="{StaticResource BorderStrongBrush}" />
-                                        <TextBlock Text="{Binding TaxText}" FontSize="10.5" Foreground="{StaticResource MutedLightBrush}" />
-                                        <TextBlock Text="  ·  SAC " FontSize="10.5" Foreground="{StaticResource MutedLightBrush}" />
-                                        <TextBlock Text="{Binding HsnSac}" FontSize="10.5" Foreground="{StaticResource MutedLightBrush}" />
+                                        <TextBlock Text="{Binding CategoryName}" FontSize="12" Foreground="{StaticResource MutedLightBrush}" Margin="6,0,0,0" />
+                                        <TextBlock Text="  ·  " FontSize="12" Foreground="{StaticResource BorderStrongBrush}" />
+                                        <TextBlock Text="{Binding TaxText}" FontSize="12" Foreground="{StaticResource MutedLightBrush}" />
+                                        <TextBlock Text="  ·  SAC " FontSize="12" Foreground="{StaticResource MutedLightBrush}" />
+                                        <TextBlock Text="{Binding HsnSac}" FontSize="12" Foreground="{StaticResource MutedLightBrush}" />
                                     </StackPanel>
 
                                     <TextBlock Grid.Row="2" Text="{Binding Description}" Style="{StaticResource TextCaption}"
@@ -125,7 +145,7 @@
                                                     </Style>
                                                 </Ellipse.Style>
                                             </Ellipse>
-                                            <TextBlock Text="{Binding AvailabilityState}" FontSize="11" FontWeight="SemiBold" Margin="6,0,0,0">
+                                            <TextBlock Text="{Binding AvailabilityState}" FontSize="12" FontWeight="SemiBold" Margin="6,0,0,0">
                                                 <TextBlock.Style>
                                                     <Style TargetType="TextBlock">
                                                         <Setter Property="Foreground" Value="{StaticResource WarningBrush}" />

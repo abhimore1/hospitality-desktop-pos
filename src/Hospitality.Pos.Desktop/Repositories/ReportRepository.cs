@@ -1,6 +1,7 @@
 using Dapper;
 using Hospitality.Pos.Desktop.Data;
 using Hospitality.Pos.Desktop.Models;
+using Hospitality.Pos.Desktop.Services;
 
 namespace Hospitality.Pos.Desktop.Repositories;
 
@@ -33,6 +34,13 @@ public sealed class ReportRepository
         var tablesTotal = connection.ExecuteScalar<int>("SELECT COUNT(*) FROM dining_tables;");
         var tablesOccupied = connection.ExecuteScalar<int>(
             "SELECT COUNT(DISTINCT table_id) FROM orders WHERE status = 'open' AND table_id IS NOT NULL;");
+        var longOpenOrders = connection.ExecuteScalar<int>(
+            """
+            SELECT COUNT(*)
+            FROM orders
+            WHERE status = 'open'
+              AND created_at <= datetime('now', 'localtime', '-2 hours');
+            """);
 
         var hourlyRows = connection.Query<HourAgg>(
             """
@@ -129,6 +137,7 @@ public sealed class ReportRepository
             OpenOrderCount = openOrders,
             TablesOccupied = tablesOccupied,
             TablesTotal = tablesTotal,
+            LongOpenCount = longOpenOrders,
             Hourly = hourly,
             TopItems = top,
             RecentBills = recent,
@@ -267,6 +276,114 @@ public sealed class ReportRepository
             TopItems = top
         };
     }
+
+    public string GenerateTallyXml(int days, PosSettings config)
+    {
+        using var connection = _database.Open();
+        var startDate = DateTime.Today.AddDays(-(days - 1)).ToString("yyyy-MM-dd");
+
+        var orders = connection.Query<PosOrder>(
+            """
+            SELECT * FROM orders
+            WHERE status = 'paid' AND date(paid_at) >= @startDate
+            ORDER BY paid_at ASC;
+            """, new { startDate }).ToList();
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
+        sb.AppendLine("<ENVELOPE>");
+        sb.AppendLine("  <HEADER>");
+        sb.AppendLine("    <TALLYREQUEST>Import Data</TALLYREQUEST>");
+        sb.AppendLine("  </HEADER>");
+        sb.AppendLine("  <BODY>");
+        sb.AppendLine("    <IMPORTDATA>");
+        sb.AppendLine("      <REQUESTDESC>");
+        sb.AppendLine("        <REPORTNAME>Vouchers</REPORTNAME>");
+        sb.AppendLine("        <STATICVARIABLES>");
+        sb.AppendLine($"          <SVCURRENTCOMPANY>{EscapeXml(config.OutletName)}</SVCURRENTCOMPANY>");
+        sb.AppendLine("        </STATICVARIABLES>");
+        sb.AppendLine("      </REQUESTDESC>");
+        sb.AppendLine("      <REQUESTDATA>");
+
+        foreach (var order in orders)
+        {
+            var paidDate = order.PaidAt ?? DateTime.Today;
+            var dateStr = paidDate.ToString("yyyyMMdd");
+            var totalRs = (order.TotalPaise / 100m).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+            var cgstRs = (order.CgstPaise / 100m).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+            var sgstRs = (order.SgstPaise / 100m).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+            var taxableRs = ((order.TotalPaise - order.TaxPaise) / 100m).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+
+            var partyLedger = "Cash";
+            if (!string.IsNullOrWhiteSpace(order.CustomerName) && !string.IsNullOrWhiteSpace(order.CustomerGstin))
+            {
+                partyLedger = EscapeXml(order.CustomerName);
+            }
+            else if (order.PaymentMethod.Contains("UPI", StringComparison.OrdinalIgnoreCase) ||
+                     order.PaymentMethod.Contains("Card", StringComparison.OrdinalIgnoreCase))
+            {
+                partyLedger = "Bank / Digital Account";
+            }
+            else if (order.PaymentMethod.Contains("Room", StringComparison.OrdinalIgnoreCase))
+            {
+                partyLedger = $"Hotel Guest Ledger - Room {order.RoomNumber}";
+            }
+
+            sb.AppendLine("        <TALLYMESSAGE xmlns:UDF=\"TallyUDF\">");
+            sb.AppendLine("          <VOUCHER VCHTYPE=\"Sales\" ACTION=\"Create\">");
+            sb.AppendLine($"            <DATE>{dateStr}</DATE>");
+            sb.AppendLine($"            <GUID>{EscapeXml(order.Id)}</GUID>");
+            sb.AppendLine("            <VOUCHERTYPENAME>Sales</VOUCHERTYPENAME>");
+            sb.AppendLine($"            <VOUCHERNUMBER>{EscapeXml(order.BillNo)}</VOUCHERNUMBER>");
+            sb.AppendLine($"            <PARTYLEDGERNAME>{partyLedger}</PARTYLEDGERNAME>");
+            sb.AppendLine($"            <NARRATION>Restrunt POS Bill {EscapeXml(order.BillNo)} via {EscapeXml(order.PaymentMethod)}</NARRATION>");
+
+            // Debit payment / party account
+            sb.AppendLine("            <ALLLEDGERENTRIES.LIST>");
+            sb.AppendLine($"              <LEDGERNAME>{partyLedger}</LEDGERNAME>");
+            sb.AppendLine("              <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>");
+            sb.AppendLine($"              <AMOUNT>-{totalRs}</AMOUNT>");
+            sb.AppendLine("            </ALLLEDGERENTRIES.LIST>");
+
+            // Credit Sales Account
+            sb.AppendLine("            <ALLLEDGERENTRIES.LIST>");
+            sb.AppendLine("              <LEDGERNAME>Restaurant Food Sales</LEDGERNAME>");
+            sb.AppendLine("              <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>");
+            sb.AppendLine($"              <AMOUNT>{taxableRs}</AMOUNT>");
+            sb.AppendLine("            </ALLLEDGERENTRIES.LIST>");
+
+            if (order.CgstPaise > 0)
+            {
+                sb.AppendLine("            <ALLLEDGERENTRIES.LIST>");
+                sb.AppendLine("              <LEDGERNAME>CGST Output Account</LEDGERNAME>");
+                sb.AppendLine("              <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>");
+                sb.AppendLine($"              <AMOUNT>{cgstRs}</AMOUNT>");
+                sb.AppendLine("            </ALLLEDGERENTRIES.LIST>");
+            }
+
+            if (order.SgstPaise > 0)
+            {
+                sb.AppendLine("            <ALLLEDGERENTRIES.LIST>");
+                sb.AppendLine("              <LEDGERNAME>SGST Output Account</LEDGERNAME>");
+                sb.AppendLine("              <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>");
+                sb.AppendLine($"              <AMOUNT>{sgstRs}</AMOUNT>");
+                sb.AppendLine("            </ALLLEDGERENTRIES.LIST>");
+            }
+
+            sb.AppendLine("          </VOUCHER>");
+            sb.AppendLine("        </TALLYMESSAGE>");
+        }
+
+        sb.AppendLine("      </REQUESTDATA>");
+        sb.AppendLine("    </IMPORTDATA>");
+        sb.AppendLine("  </BODY>");
+        sb.AppendLine("</ENVELOPE>");
+
+        return sb.ToString();
+    }
+
+    private static string EscapeXml(string value) =>
+        value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;").Replace("'", "&apos;");
 
     private sealed class DashboardAgg
     {

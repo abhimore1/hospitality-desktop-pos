@@ -12,16 +12,19 @@ public partial class DashboardViewModel : ObservableObject, IRefreshable
     private readonly ReportRepository _reports;
     private readonly AppSession _session;
     private readonly AppNavigation _navigation;
+    private readonly OutboxRepository _outbox;
 
     public DashboardViewModel(
         ReportRepository reports,
         AppSession session,
         AppNavigation navigation,
+        OutboxRepository outbox,
         DataChangeNotifier notifier)
     {
         _reports = reports;
         _session = session;
         _navigation = navigation;
+        _outbox = outbox;
         notifier.Changed += Refresh;
         Refresh();
     }
@@ -41,6 +44,13 @@ public partial class DashboardViewModel : ObservableObject, IRefreshable
     [ObservableProperty] private string _openOrdersText = "0 open";
     [ObservableProperty] private string _itemsSoldText = "";
     [ObservableProperty] private bool _hasLowStock;
+    [ObservableProperty] private bool _hasLongOpen;
+    [ObservableProperty] private string _longOpenText = "";
+    [ObservableProperty] private bool _hasPendingSync;
+    [ObservableProperty] private string _pendingSyncText = "";
+    [ObservableProperty] private bool _hasNoAlerts = true;
+    [ObservableProperty] private bool _hasSalesData;
+    [ObservableProperty] private bool _hasTopItems;
 
     public void Refresh()
     {
@@ -65,6 +75,18 @@ public partial class DashboardViewModel : ObservableObject, IRefreshable
         Replace(RecentBills, snapshot.RecentBills);
         Replace(LowStock, snapshot.LowStock);
         HasLowStock = LowStock.Count > 0;
+        HasSalesData = snapshot.SalesPaise > 0;
+        HasTopItems = TopItems.Count > 0;
+
+        HasLongOpen = snapshot.LongOpenCount > 0;
+        LongOpenText = snapshot.LongOpenCount == 1
+            ? "1 table open over 2h"
+            : $"{snapshot.LongOpenCount} tables open over 2h";
+
+        var pending = _outbox.SafeCountPending();
+        HasPendingSync = pending > 0;
+        PendingSyncText = pending == 1 ? "1 change waiting to sync" : $"{pending} changes waiting to sync";
+        HasNoAlerts = !HasLowStock && !HasLongOpen && !HasPendingSync;
     }
 
     [RelayCommand]
@@ -72,6 +94,9 @@ public partial class DashboardViewModel : ObservableObject, IRefreshable
 
     [RelayCommand]
     private void ViewReports() => _navigation.Navigate("Reports");
+
+    [RelayCommand]
+    private void ViewTables() => _navigation.Navigate("Tables");
 
     private static void Replace<T>(ObservableCollection<T> target, IEnumerable<T> source)
     {

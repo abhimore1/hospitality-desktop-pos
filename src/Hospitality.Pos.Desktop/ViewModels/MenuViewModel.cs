@@ -1,9 +1,12 @@
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Hospitality.Pos.Desktop.Models;
 using Hospitality.Pos.Desktop.Repositories;
 using Hospitality.Pos.Desktop.Services;
+using Microsoft.Win32;
 
 namespace Hospitality.Pos.Desktop.ViewModels;
 
@@ -79,6 +82,60 @@ public partial class MenuViewModel : ObservableObject, IRefreshable
             ? $"{item.Name} marked sold out."
             : $"{item.Name} is back on the menu.");
         LoadItems();
+    }
+
+    [RelayCommand]
+    private void ExportCsv()
+    {
+        var dialog = new SaveFileDialog
+        {
+            Filter = "CSV file (*.csv)|*.csv",
+            FileName = $"menu-catalog-{DateTime.Today:yyyy-MM-dd}.csv",
+            Title = "Export menu catalog"
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            var csv = _menuRepository.ExportMenuCsv();
+            File.WriteAllText(dialog.FileName, csv, new UTF8Encoding(true));
+            _toasts.Success("Menu catalog exported to CSV.");
+        }
+        catch (Exception ex)
+        {
+            _toasts.Error($"Export failed: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private void ImportCsv()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "CSV file (*.csv)|*.csv",
+            Title = "Import menu catalog"
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            var csv = File.ReadAllText(dialog.FileName);
+            if (_menuRepository.ImportMenuCsv(csv, out var added, out var updated, out var error))
+            {
+                _toasts.Success($"Menu imported: {added} new, {updated} updated.");
+                Refresh();
+            }
+            else
+            {
+                _toasts.Error($"Import failed: {error}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _toasts.Error($"Import error: {ex.Message}");
+        }
     }
 
     private void LoadItems()

@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Hospitality.Pos.Desktop/Hospitality.Pos.Desktop.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Hospitality.Pos.Desktop.Tests/Hospitality.Pos.Desktop.Tests.csproj" />
+  </Folder>
 </Solution>

@@ -64,6 +64,7 @@ public sealed class DashboardSnapshot
     public int TablesOccupied { get; set; }
     public int TablesTotal { get; set; }
     public long TaxPaise { get; set; }
+    public int LongOpenCount { get; set; }
     public List<HourPoint> Hourly { get; set; } = [];
     public List<TopItemRow> TopItems { get; set; } = [];
     public List<RecentBillRow> RecentBills { get; set; } = [];

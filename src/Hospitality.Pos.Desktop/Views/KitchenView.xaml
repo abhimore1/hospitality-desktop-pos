@@ -91,7 +91,7 @@
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="{Binding Title}" Style="{StaticResource TextH3}" />
                                         <Border Background="{Binding AccentSoft}" CornerRadius="9" Padding="7,2" Margin="8,0,0,0" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Tickets.Count}" FontSize="10" FontWeight="Bold"
+                                            <TextBlock Text="{Binding Tickets.Count}" FontSize="12" FontWeight="Bold"
                                                        Foreground="{Binding Accent}" />
                                         </Border>
                                     </StackPanel>
@@ -114,13 +114,13 @@
                                                         <Grid>
                                                             <StackPanel>
                                                                 <TextBlock Text="{Binding BillNo}" FontSize="12.5" FontWeight="SemiBold" />
-                                                                <TextBlock Text="{Binding TableLabel}" FontSize="11" Foreground="{StaticResource MutedBrush}" Margin="0,1,0,0" />
+                                                                <TextBlock Text="{Binding TableLabel}" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,1,0,0" />
                                                             </StackPanel>
                                                             <StackPanel HorizontalAlignment="Right">
                                                                 <Border Background="{Binding AccentSoft}" CornerRadius="8" Padding="7,2" HorizontalAlignment="Right">
-                                                                    <TextBlock Text="{Binding StatusLabel}" FontSize="9" FontWeight="Bold" Foreground="{Binding AccentBrush}" />
+                                                                    <TextBlock Text="{Binding StatusLabel}" FontSize="12" FontWeight="Bold" Foreground="{Binding AccentBrush}" />
                                                                 </Border>
-                                                                <TextBlock Text="{Binding ElapsedText}" FontSize="10" Foreground="{StaticResource MutedLightBrush}"
+                                                                <TextBlock Text="{Binding ElapsedText}" FontSize="12" Foreground="{StaticResource MutedLightBrush}"
                                                                            HorizontalAlignment="Right" Margin="0,3,0,0" />
                                                             </StackPanel>
                                                         </Grid>
@@ -140,9 +140,9 @@
                                                                                 CornerRadius="2" VerticalAlignment="Center" HorizontalAlignment="Left">
                                                                             <Ellipse Width="5" Height="5" Fill="{Binding VegBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                                                         </Border>
-                                                                        <TextBlock Grid.Column="1" Text="{Binding QuantityText}" FontSize="11.5" FontWeight="SemiBold"
+                                                                        <TextBlock Grid.Column="1" Text="{Binding QuantityText}" FontSize="12" FontWeight="SemiBold"
                                                                                    Foreground="{StaticResource Brand800Brush}" VerticalAlignment="Center" />
-                                                                        <TextBlock Grid.Column="2" Text="{Binding Name}" FontSize="11.5" Foreground="{StaticResource InkSoftBrush}"
+                                                                        <TextBlock Grid.Column="2" Text="{Binding Name}" FontSize="12" Foreground="{StaticResource InkSoftBrush}"
                                                                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                                                     </Grid>
                                                                 </DataTemplate>
@@ -152,15 +152,15 @@
                                                         <Border Height="1" Background="{StaticResource DividerBrush}" Margin="0,8,0,9" />
 
                                                         <Grid>
-                                                            <TextBlock Text="{Binding TimeText}" FontSize="10" Foreground="{StaticResource MutedLightBrush}" VerticalAlignment="Center" />
-                                                            <TextBlock Text="{Binding OrderType}" FontSize="10" Foreground="{StaticResource MutedLightBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{Binding TimeText}" FontSize="12" Foreground="{StaticResource MutedLightBrush}" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{Binding OrderType}" FontSize="12" Foreground="{StaticResource MutedLightBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                                                         </Grid>
 
                                                         <Button Style="{StaticResource SoftButton}" Height="34" Margin="0,10,0,0"
                                                                 Command="{Binding DataContext.AdvanceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                                 CommandParameter="{Binding}">
                                                             <StackPanel Orientation="Horizontal">
-                                                                <TextBlock Text="{Binding NextLabel}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Brand800Brush}" />
+                                                                <TextBlock Text="{Binding NextLabel}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource Brand800Brush}" />
                                                                 <Path Data="{StaticResource IconArrowRight}" Width="12" Height="12" Stretch="Uniform"
                                                                       Fill="{StaticResource Brand800Brush}" Margin="6,0,0,0" VerticalAlignment="Center" />
                                                             </StackPanel>
@@ -187,7 +187,7 @@
                                           Fill="{StaticResource BorderStrongBrush}" HorizontalAlignment="Center" />
                                     <TextBlock Text="All clear" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}"
                                                HorizontalAlignment="Center" Margin="0,8,0,2" />
-                                    <TextBlock Text="No tickets in this stage" FontSize="10.5" Foreground="{StaticResource MutedLightBrush}"
+                                    <TextBlock Text="No tickets in this stage" FontSize="12" Foreground="{StaticResource MutedLightBrush}"
                                                HorizontalAlignment="Center" />
                                 </StackPanel>
                             </Grid>

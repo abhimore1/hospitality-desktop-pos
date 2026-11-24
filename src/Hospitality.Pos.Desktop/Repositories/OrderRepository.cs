@@ -70,7 +70,10 @@ public sealed class OrderRepository
         int? tableId,
         OrderTotals totals,
         IReadOnlyList<OrderLineInput> lines,
-        string note = "")
+        string note = "",
+        string customerName = "",
+        string customerPhone = "",
+        string customerGstin = "")
     {
         var now = DateTime.Now;
         var orderId = Guid.NewGuid().ToString();
@@ -85,13 +88,13 @@ public sealed class OrderRepository
         connection.Execute(
             """
             INSERT INTO orders
-                (id, bill_no, order_type, table_id, status, kot_status, cashier_name, terminal,
-                 subtotal_paise, discount_paise, tax_paise, cgst_paise, sgst_paise, round_off_paise,
+                (id, bill_no, order_type, table_id, status, kot_status, customer_name, customer_phone, customer_gstin,
+                 cashier_name, terminal, subtotal_paise, discount_paise, tax_paise, cgst_paise, sgst_paise, round_off_paise,
                  total_paise, gst_rate_bps, prices_include_tax, payment_method, note,
                  created_at, paid_at, synced)
             VALUES
-                (@id, @billNo, @orderType, @tableId, 'open', 'new', @cashier, @terminal,
-                 @subtotal, @discount, @tax, @cgst, @sgst, @roundOff,
+                (@id, @billNo, @orderType, @tableId, 'open', 'new', @customerName, @customerPhone, @customerGstin,
+                 @cashier, @terminal, @subtotal, @discount, @tax, @cgst, @sgst, @roundOff,
                  @total, @gstRate, @inclusive, '', @note,
                  @createdAt, NULL, 0);
             """,
@@ -101,6 +104,9 @@ public sealed class OrderRepository
                 billNo,
                 orderType,
                 tableId,
+                customerName,
+                customerPhone,
+                customerGstin,
                 cashier = actor,
                 terminal = _session.TerminalName,
                 subtotal = totals.TaxablePaise,
@@ -165,7 +171,14 @@ public sealed class OrderRepository
         OrderTotals totals,
         IReadOnlyList<OrderLineInput> lines,
         string paymentMethod,
-        string note = "")
+        string note = "",
+        IReadOnlyList<PaymentSplitInput>? splitPayments = null,
+        string customerName = "",
+        string customerPhone = "",
+        string customerGstin = "",
+        string discountReason = "",
+        string discountApprover = "",
+        string roomNumber = "")
     {
         var now = DateTime.Now;
         var orderId = Guid.NewGuid().ToString();
@@ -176,17 +189,22 @@ public sealed class OrderRepository
 
         var billNo = NextBillNo(connection, transaction);
         var tableName = GetTableName(connection, transaction, tableId);
+        var effectivePayment = splitPayments is not null && splitPayments.Count > 1
+            ? string.Join(" + ", splitPayments.Select(p => p.Method))
+            : paymentMethod;
 
         connection.Execute(
             """
             INSERT INTO orders
-                (id, bill_no, order_type, table_id, status, kot_status, cashier_name, terminal,
-                 subtotal_paise, discount_paise, tax_paise, cgst_paise, sgst_paise, round_off_paise,
+                (id, bill_no, order_type, table_id, status, kot_status, customer_name, customer_phone, customer_gstin,
+                 cashier_name, terminal, subtotal_paise, discount_paise, discount_reason, discount_approver,
+                 reprint_count, room_number, tax_paise, cgst_paise, sgst_paise, round_off_paise,
                  total_paise, gst_rate_bps, prices_include_tax, payment_method, note,
                  created_at, paid_at, synced)
             VALUES
-                (@id, @billNo, @orderType, @tableId, 'paid', 'served', @cashier, @terminal,
-                 @subtotal, @discount, @tax, @cgst, @sgst, @roundOff,
+                (@id, @billNo, @orderType, @tableId, 'paid', 'served', @customerName, @customerPhone, @customerGstin,
+                 @cashier, @terminal, @subtotal, @discount, @discountReason, @discountApprover,
+                 0, @roomNumber, @tax, @cgst, @sgst, @roundOff,
                  @total, @gstRate, @inclusive, @payment, @note,
                  @createdAt, @paidAt, 0);
             """,
@@ -196,10 +214,16 @@ public sealed class OrderRepository
                 billNo,
                 orderType,
                 tableId,
+                customerName,
+                customerPhone,
+                customerGstin,
                 cashier = actor,
                 terminal = _session.TerminalName,
                 subtotal = totals.TaxablePaise,
                 discount = totals.DiscountPaise,
+                discountReason,
+                discountApprover,
+                roomNumber,
                 tax = totals.TaxPaise,
                 cgst = totals.CgstPaise,
                 sgst = totals.SgstPaise,
@@ -207,17 +231,33 @@ public sealed class OrderRepository
                 total = totals.TotalPaise,
                 gstRate = _settings.GetInt("gst_rate_bps", 500),
                 inclusive = _settings.GetBool("prices_include_tax", true),
-                payment = paymentMethod,
+                payment = effectivePayment,
                 note,
                 createdAt = now,
                 paidAt = now
             }, transaction);
 
         InsertItems(connection, transaction, orderId, lines);
+        var recordedPayments = RecordPayments(connection, transaction, orderId, paymentMethod, totals.TotalPaise, splitPayments, now);
+
+        if (!string.IsNullOrWhiteSpace(roomNumber))
+        {
+            connection.Execute(
+                "UPDATE hotel_rooms SET folio_balance_paise = folio_balance_paise + @total WHERE room_number = @roomNumber;",
+                new { total = totals.TotalPaise, roomNumber }, transaction);
+        }
+
         OutboxRepository.Enqueue(
             connection, transaction, "order", orderId, "upsert",
             $$"""{"id":"{{orderId}}","status":"paid","total":{{totals.TotalPaise}}}""");
-        AuditRepository.Write(connection, transaction, actor, "bill.settled", $"{billNo} paid by {paymentMethod}.");
+
+        if (totals.DiscountPaise > 0)
+        {
+            AuditRepository.Write(connection, transaction, actor, "bill.discount",
+                $"{billNo} discount of {Inr.Format(totals.DiscountPaise)} (Reason: {discountReason}, Approver: {discountApprover}).");
+        }
+
+        AuditRepository.Write(connection, transaction, actor, "bill.settled", $"{billNo} paid via {effectivePayment}.");
 
         transaction.Commit();
         _notifier.Notify();
@@ -231,18 +271,26 @@ public sealed class OrderRepository
             TableName = tableName,
             Status = "paid",
             KotStatus = "served",
+            CustomerName = customerName,
+            CustomerPhone = customerPhone,
+            CustomerGstin = customerGstin,
             CashierName = actor,
             Terminal = _session.TerminalName,
             SubtotalPaise = totals.TaxablePaise,
             DiscountPaise = totals.DiscountPaise,
+            DiscountReason = discountReason,
+            DiscountApprover = discountApprover,
+            ReprintCount = 0,
+            RoomNumber = roomNumber,
             TaxPaise = totals.TaxPaise,
             CgstPaise = totals.CgstPaise,
             SgstPaise = totals.SgstPaise,
             RoundOffPaise = totals.RoundOffPaise,
             TotalPaise = totals.TotalPaise,
-            PaymentMethod = paymentMethod,
+            PaymentMethod = effectivePayment,
             CreatedAt = now,
             PaidAt = now,
+            Payments = recordedPayments,
             Items = lines.Select(line => new OrderItem
             {
                 Id = Guid.NewGuid().ToString(),
@@ -253,7 +301,10 @@ public sealed class OrderRepository
                 UnitPricePaise = line.UnitPricePaise,
                 TaxBps = line.TaxBps,
                 LineTotalPaise = line.LineTotalPaise,
-                IsVeg = line.IsVeg
+                IsVeg = line.IsVeg,
+                Station = line.Station,
+                Course = line.Course,
+                Status = "active"
             }).ToList()
         };
     }
@@ -262,7 +313,14 @@ public sealed class OrderRepository
         string orderId,
         string paymentMethod,
         OrderTotals totals,
-        IReadOnlyList<OrderLineInput> lines)
+        IReadOnlyList<OrderLineInput> lines,
+        IReadOnlyList<PaymentSplitInput>? splitPayments = null,
+        string customerName = "",
+        string customerPhone = "",
+        string customerGstin = "",
+        string discountReason = "",
+        string discountApprover = "",
+        string roomNumber = "")
     {
         var actor = _session.CurrentStaff?.Name ?? "System";
 
@@ -278,13 +336,19 @@ public sealed class OrderRepository
 
         var billNo = NextBillNo(connection, transaction);
         var paidAt = DateTime.Now;
+        var effectivePayment = splitPayments is not null && splitPayments.Count > 1
+            ? string.Join(" + ", splitPayments.Select(p => p.Method))
+            : paymentMethod;
 
         connection.Execute(
             """
             UPDATE orders
             SET bill_no = @billNo, status = 'paid', kot_status = 'served',
+                customer_name = @customerName, customer_phone = @customerPhone, customer_gstin = @customerGstin,
                 payment_method = @payment, paid_at = @paidAt,
                 subtotal_paise = @subtotal, discount_paise = @discount,
+                discount_reason = @discountReason, discount_approver = @discountApprover,
+                room_number = @roomNumber,
                 tax_paise = @tax, cgst_paise = @cgst, sgst_paise = @sgst,
                 round_off_paise = @roundOff, total_paise = @total
             WHERE id = @orderId;
@@ -292,10 +356,16 @@ public sealed class OrderRepository
             new
             {
                 billNo,
-                payment = paymentMethod,
+                customerName,
+                customerPhone,
+                customerGstin,
+                payment = effectivePayment,
                 paidAt,
                 subtotal = totals.TaxablePaise,
                 discount = totals.DiscountPaise,
+                discountReason,
+                discountApprover,
+                roomNumber,
                 tax = totals.TaxPaise,
                 cgst = totals.CgstPaise,
                 sgst = totals.SgstPaise,
@@ -306,11 +376,26 @@ public sealed class OrderRepository
 
         connection.Execute("DELETE FROM order_items WHERE order_id = @orderId;", new { orderId }, transaction);
         InsertItems(connection, transaction, orderId, lines);
+        var recordedPayments = RecordPayments(connection, transaction, orderId, paymentMethod, totals.TotalPaise, splitPayments, paidAt);
+
+        if (!string.IsNullOrWhiteSpace(roomNumber))
+        {
+            connection.Execute(
+                "UPDATE hotel_rooms SET folio_balance_paise = folio_balance_paise + @total WHERE room_number = @roomNumber;",
+                new { total = totals.TotalPaise, roomNumber }, transaction);
+        }
 
         OutboxRepository.Enqueue(
             connection, transaction, "order", orderId, "upsert",
             $$"""{"id":"{{orderId}}","status":"paid","total":{{totals.TotalPaise}}}""");
-        AuditRepository.Write(connection, transaction, actor, "bill.settled", $"{billNo} paid by {paymentMethod}.");
+
+        if (totals.DiscountPaise > 0)
+        {
+            AuditRepository.Write(connection, transaction, actor, "bill.discount",
+                $"{billNo} discount of {Inr.Format(totals.DiscountPaise)} (Reason: {discountReason}, Approver: {discountApprover}).");
+        }
+
+        AuditRepository.Write(connection, transaction, actor, "bill.settled", $"{billNo} paid via {effectivePayment}.");
 
         transaction.Commit();
         _notifier.Notify();
@@ -318,15 +403,22 @@ public sealed class OrderRepository
         order.BillNo = billNo;
         order.Status = "paid";
         order.KotStatus = "served";
-        order.PaymentMethod = paymentMethod;
+        order.CustomerName = customerName;
+        order.CustomerPhone = customerPhone;
+        order.CustomerGstin = customerGstin;
+        order.PaymentMethod = effectivePayment;
         order.PaidAt = paidAt;
         order.SubtotalPaise = totals.TaxablePaise;
         order.DiscountPaise = totals.DiscountPaise;
+        order.DiscountReason = discountReason;
+        order.DiscountApprover = discountApprover;
+        order.RoomNumber = roomNumber;
         order.TaxPaise = totals.TaxPaise;
         order.CgstPaise = totals.CgstPaise;
         order.SgstPaise = totals.SgstPaise;
         order.RoundOffPaise = totals.RoundOffPaise;
         order.TotalPaise = totals.TotalPaise;
+        order.Payments = recordedPayments;
         order.Items = lines.Select(line => new OrderItem
         {
             Id = Guid.NewGuid().ToString(),
@@ -337,7 +429,10 @@ public sealed class OrderRepository
             UnitPricePaise = line.UnitPricePaise,
             TaxBps = line.TaxBps,
             LineTotalPaise = line.LineTotalPaise,
-            IsVeg = line.IsVeg
+            IsVeg = line.IsVeg,
+            Station = line.Station,
+            Course = line.Course,
+            Status = "active"
         }).ToList();
         return order;
     }
@@ -378,9 +473,92 @@ public sealed class OrderRepository
         if (order is not null)
         {
             order.Items = LoadItems(connection, transaction, order.Id);
+            order.Payments = LoadPayments(connection, transaction, order.Id);
         }
 
         return order;
+    }
+
+    private static List<OrderPayment> LoadPayments(
+        SqliteConnection connection,
+        SqliteTransaction? transaction,
+        string orderId) =>
+        connection.Query<OrderPayment>(
+            """
+            SELECT * FROM order_payments
+            WHERE order_id = @orderId
+            ORDER BY created_at;
+            """, new { orderId }, transaction).ToList();
+
+    private static List<OrderPayment> RecordPayments(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string orderId,
+        string paymentMethod,
+        long totalPaise,
+        IReadOnlyList<PaymentSplitInput>? splitPayments,
+        DateTime now)
+    {
+        var result = new List<OrderPayment>();
+        if (splitPayments is not null && splitPayments.Count > 0)
+        {
+            foreach (var split in splitPayments)
+            {
+                var pid = Guid.NewGuid().ToString();
+                connection.Execute(
+                    """
+                    INSERT INTO order_payments (id, order_id, method, amount_paise, reference, created_at)
+                    VALUES (@pid, @orderId, @method, @amount, @reference, @createdAt);
+                    """,
+                    new
+                    {
+                        pid,
+                        orderId,
+                        method = split.Method,
+                        amount = split.AmountPaise,
+                        reference = split.Reference,
+                        createdAt = now
+                    }, transaction);
+
+                result.Add(new OrderPayment
+                {
+                    Id = pid,
+                    OrderId = orderId,
+                    Method = split.Method,
+                    AmountPaise = split.AmountPaise,
+                    Reference = split.Reference,
+                    CreatedAt = now
+                });
+            }
+        }
+        else
+        {
+            var pid = Guid.NewGuid().ToString();
+            connection.Execute(
+                """
+                INSERT INTO order_payments (id, order_id, method, amount_paise, reference, created_at)
+                VALUES (@pid, @orderId, @method, @amount, '', @createdAt);
+                """,
+                new
+                {
+                    pid,
+                    orderId,
+                    method = paymentMethod,
+                    amount = totalPaise,
+                    createdAt = now
+                }, transaction);
+
+            result.Add(new OrderPayment
+            {
+                Id = pid,
+                OrderId = orderId,
+                Method = paymentMethod,
+                AmountPaise = totalPaise,
+                CreatedAt = now
+            });
+        }
+
+        return result;
     }
 
     private static List<OrderItem> LoadItems(
@@ -407,8 +585,8 @@ public sealed class OrderRepository
             connection.Execute(
                 """
                 INSERT INTO order_items
-                    (id, order_id, menu_item_id, name, qty, unit_price_paise, tax_bps, line_total_paise)
-                VALUES (@id, @orderId, @menuItemId, @name, @qty, @unitPrice, @taxBps, @lineTotal);
+                    (id, order_id, menu_item_id, name, qty, unit_price_paise, tax_bps, line_total_paise, station, course, status)
+                VALUES (@id, @orderId, @menuItemId, @name, @qty, @unitPrice, @taxBps, @lineTotal, @station, @course, 'active');
                 """,
                 new
                 {
@@ -419,9 +597,347 @@ public sealed class OrderRepository
                     qty = line.Qty,
                     unitPrice = line.UnitPricePaise,
                     taxBps = line.TaxBps,
-                    lineTotal = line.LineTotalPaise
+                    lineTotal = line.LineTotalPaise,
+                    station = string.IsNullOrWhiteSpace(line.Station) ? "Kitchen" : line.Station,
+                    course = string.IsNullOrWhiteSpace(line.Course) ? "Main" : line.Course
                 }, transaction);
         }
+    }
+
+    public void LogReprint(string orderId, string actor)
+    {
+        using var connection = _database.Open();
+        using var transaction = connection.BeginTransaction();
+
+        connection.Execute(
+            "UPDATE orders SET reprint_count = reprint_count + 1 WHERE id = @orderId;",
+            new { orderId }, transaction);
+
+        var order = connection.QuerySingleOrDefault<PosOrder>(
+            "SELECT bill_no, reprint_count FROM orders WHERE id = @orderId;",
+            new { orderId }, transaction);
+
+        if (order is not null)
+        {
+            AuditRepository.Write(connection, transaction, actor, "bill.reprint",
+                $"Duplicate bill reprint #{order.ReprintCount} for {order.BillNo}.");
+        }
+
+        transaction.Commit();
+        _notifier.Notify();
+    }
+
+    public bool MergeTables(int sourceTableId, int targetTableId, out string message)
+    {
+        var actor = _session.CurrentStaff?.Name ?? "System";
+
+        using var connection = _database.Open();
+        using var transaction = connection.BeginTransaction();
+
+        var sourceOrderId = connection.ExecuteScalar<string?>(
+            "SELECT id FROM orders WHERE table_id = @id AND status = 'open' ORDER BY created_at DESC LIMIT 1;",
+            new { id = sourceTableId }, transaction);
+
+        var targetOrderId = connection.ExecuteScalar<string?>(
+            "SELECT id FROM orders WHERE table_id = @id AND status = 'open' ORDER BY created_at DESC LIMIT 1;",
+            new { id = targetTableId }, transaction);
+
+        if (string.IsNullOrEmpty(sourceOrderId))
+        {
+            message = "Source table has no active order to merge.";
+            return false;
+        }
+
+        var sourceOrder = LoadOrder(connection, transaction, sourceOrderId, openOnly: true);
+        if (sourceOrder is null)
+        {
+            message = "Source order not found.";
+            return false;
+        }
+
+        var targetOrder = string.IsNullOrEmpty(targetOrderId)
+            ? null
+            : LoadOrder(connection, transaction, targetOrderId, openOnly: true);
+
+        if (targetOrder is null)
+        {
+            // Just move the source table order to the target table
+            var targetTableName = GetTableName(connection, transaction, targetTableId);
+            connection.Execute(
+                "UPDATE orders SET table_id = @targetTableId WHERE id = @sourceOrderId;",
+                new { targetTableId, sourceOrderId }, transaction);
+
+            AuditRepository.Write(connection, transaction, actor, "table.transferred",
+                $"{sourceOrder.BillNo} transferred from Table {sourceOrder.TableName} to Table {targetTableName}.");
+
+            transaction.Commit();
+            _notifier.Notify();
+            message = $"Transferred to Table {targetTableName}.";
+            return true;
+        }
+
+        // Both tables have open orders: merge source order items into target order
+        connection.Execute(
+            "UPDATE order_items SET order_id = @targetOrderId WHERE order_id = @sourceOrderId;",
+            new { targetOrderId = targetOrder.Id, sourceOrderId = sourceOrder.Id }, transaction);
+
+        var targetItems = LoadItems(connection, transaction, targetOrder.Id);
+        var activeItems = targetItems.Where(i => i.Status == "active").ToList();
+        var taxLines = activeItems.Select(ai => new TaxLine(ai.UnitPricePaise, ai.Qty, ai.TaxBps)).ToList();
+        var inclusive = _settings.GetBool("prices_include_tax", true);
+        var totals = TaxCalculator.Calculate(taxLines, 0, inclusive);
+
+        connection.Execute(
+            """
+            UPDATE orders
+            SET subtotal_paise = @subtotal, discount_paise = @discount,
+                tax_paise = @tax, cgst_paise = @cgst, sgst_paise = @sgst,
+                round_off_paise = @roundOff, total_paise = @total
+            WHERE id = @orderId;
+            """,
+            new
+            {
+                orderId = targetOrder.Id,
+                subtotal = totals.TaxablePaise,
+                discount = totals.DiscountPaise,
+                tax = totals.TaxPaise,
+                cgst = totals.CgstPaise,
+                sgst = totals.SgstPaise,
+                roundOff = totals.RoundOffPaise,
+                total = totals.TotalPaise
+            }, transaction);
+
+        // Mark source order as merged
+        connection.Execute(
+            "UPDATE orders SET status = 'merged', table_id = NULL, note = @note WHERE id = @sourceOrderId;",
+            new { sourceOrderId = sourceOrder.Id, note = $"Merged into {targetOrder.BillNo} (Table {targetOrder.TableName})" },
+            transaction);
+
+        AuditRepository.Write(connection, transaction, actor, "table.merged",
+            $"Merged Table {sourceOrder.TableName} ({sourceOrder.BillNo}) into Table {targetOrder.TableName} ({targetOrder.BillNo}). Combined total: {Inr.Format(totals.TotalPaise)}.");
+
+        transaction.Commit();
+        _notifier.Notify();
+        message = $"Merged Table {sourceOrder.TableName} into Table {targetOrder.TableName}.";
+        return true;
+    }
+
+    public bool CancelOrderItem(string orderId, string itemId, string reason, string approver, out string message)
+    {
+        var actor = _session.CurrentStaff?.Name ?? "System";
+
+        using var connection = _database.Open();
+        using var transaction = connection.BeginTransaction();
+
+        var item = connection.QuerySingleOrDefault<OrderItem>(
+            "SELECT * FROM order_items WHERE id = @itemId AND order_id = @orderId;",
+            new { itemId, orderId }, transaction);
+
+        if (item is null)
+        {
+            message = "Item not found in order.";
+            return false;
+        }
+
+        connection.Execute(
+            """
+            UPDATE order_items
+            SET status = 'cancelled', cancel_reason = @reason, cancel_approver = @approver
+            WHERE id = @itemId;
+            """,
+            new { itemId, reason, approver }, transaction);
+
+        var activeItems = connection.Query<OrderItem>(
+            "SELECT * FROM order_items WHERE order_id = @orderId AND status = 'active';",
+            new { orderId }, transaction).ToList();
+
+        var inclusive = _settings.GetBool("prices_include_tax", true);
+        var taxLines = activeItems.Select(ai => new TaxLine(ai.UnitPricePaise, ai.Qty, ai.TaxBps)).ToList();
+        var totals = TaxCalculator.Calculate(taxLines, 0, inclusive);
+
+        connection.Execute(
+            """
+            UPDATE orders
+            SET subtotal_paise = @subtotal, discount_paise = @discount,
+                tax_paise = @tax, cgst_paise = @cgst, sgst_paise = @sgst,
+                round_off_paise = @roundOff, total_paise = @total
+            WHERE id = @orderId;
+            """,
+            new
+            {
+                orderId,
+                subtotal = totals.TaxablePaise,
+                discount = totals.DiscountPaise,
+                tax = totals.TaxPaise,
+                cgst = totals.CgstPaise,
+                sgst = totals.SgstPaise,
+                roundOff = totals.RoundOffPaise,
+                total = totals.TotalPaise
+            }, transaction);
+
+        var billNo = connection.ExecuteScalar<string>("SELECT bill_no FROM orders WHERE id = @orderId;", new { orderId }, transaction);
+
+        AuditRepository.Write(connection, transaction, actor, "kot.item_cancelled",
+            $"{item.Qty}x {item.Name} cancelled on {billNo} by {approver} (Reason: {reason}, Wastage: {Inr.Format(item.LineTotalPaise)}).");
+
+        transaction.Commit();
+        _notifier.Notify();
+        message = $"{item.Name} cancelled.";
+        return true;
+    }
+
+    public List<HotelRoom> GetHotelRooms()
+    {
+        using var connection = _database.Open();
+        return connection.Query<HotelRoom>(
+            "SELECT * FROM hotel_rooms ORDER BY room_number;").ToList();
+    }
+
+    public void RecordDayEndClosure(DayEndClosure closure)
+    {
+        using var connection = _database.Open();
+        using var transaction = connection.BeginTransaction();
+
+        connection.Execute(
+            """
+            INSERT INTO day_end_closures
+                (closure_date, closed_by, total_sales_paise, total_tax_paise, total_discount_paise,
+                 system_cash_paise, counted_cash_paise, cash_variance_paise, denominations_json,
+                 unsynced_count, open_orders_count, created_at, notes)
+            VALUES
+                (@ClosureDate, @ClosedBy, @TotalSalesPaise, @TotalTaxPaise, @TotalDiscountPaise,
+                 @SystemCashPaise, @CountedCashPaise, @CashVariancePaise, @DenominationsJson,
+                 @UnsyncedCount, @OpenOrdersCount, @CreatedAt, @Notes);
+            """, closure, transaction);
+
+        AuditRepository.Write(connection, transaction, closure.ClosedBy, "dayend.closure",
+            $"Day-end closed for {closure.ClosureDate}: Sales {closure.TotalSalesText}, Variance {closure.CashVarianceText}.");
+
+        transaction.Commit();
+        _notifier.Notify();
+    }
+
+    public DayEndClosure GetDayEndSummary(DateTime date, string actor)
+    {
+        using var connection = _database.Open();
+        var dateStr = date.ToString("yyyy-MM-dd");
+
+        var salesAgg = connection.QuerySingle<(long Sales, long Tax, long Discount)>(
+            """
+            SELECT COALESCE(SUM(total_paise), 0) AS Sales,
+                   COALESCE(SUM(tax_paise), 0) AS Tax,
+                   COALESCE(SUM(discount_paise), 0) AS Discount
+            FROM orders
+            WHERE status = 'paid' AND date(paid_at) = @dateStr;
+            """, new { dateStr });
+
+        var cashSales = connection.ExecuteScalar<long>(
+            """
+            SELECT COALESCE(SUM(amount_paise), 0)
+            FROM order_payments op
+            JOIN orders o ON o.id = op.order_id
+            WHERE o.status = 'paid' AND date(o.paid_at) = @dateStr AND op.method = 'Cash';
+            """, new { dateStr });
+
+        // Fallback for orders that might have payment_method = 'Cash' but no payments row
+        if (cashSales == 0)
+        {
+            cashSales = connection.ExecuteScalar<long>(
+                """
+                SELECT COALESCE(SUM(total_paise), 0)
+                FROM orders
+                WHERE status = 'paid' AND date(paid_at) = @dateStr AND payment_method LIKE '%Cash%';
+                """, new { dateStr });
+        }
+
+        var openOrdersCount = connection.ExecuteScalar<int>(
+            "SELECT COUNT(*) FROM orders WHERE status = 'open';");
+
+        var unsyncedCount = connection.ExecuteScalar<int>(
+            "SELECT COUNT(*) FROM sync_outbox WHERE synced = 0;");
+
+        return new DayEndClosure
+        {
+            ClosureDate = dateStr,
+            ClosedBy = actor,
+            TotalSalesPaise = salesAgg.Sales,
+            TotalTaxPaise = salesAgg.Tax,
+            TotalDiscountPaise = salesAgg.Discount,
+            SystemCashPaise = cashSales,
+            CountedCashPaise = cashSales,
+            CashVariancePaise = 0,
+            OpenOrdersCount = openOrdersCount,
+            UnsyncedCount = unsyncedCount,
+            CreatedAt = DateTime.Now
+        };
+    }
+
+    public List<LeakageEvent> GetLeakageReport(int days)
+    {
+        using var connection = _database.Open();
+        var startDate = DateTime.Today.AddDays(-days).ToString("yyyy-MM-dd");
+
+        var events = new List<LeakageEvent>();
+
+        // 1. Discounts
+        var discounts = connection.Query<PosOrder>(
+            """
+            SELECT bill_no, cashier_name, total_paise, discount_paise, discount_reason, discount_approver, paid_at
+            FROM orders
+            WHERE status = 'paid' AND discount_paise > 0 AND date(paid_at) >= @startDate
+            ORDER BY paid_at DESC;
+            """, new { startDate });
+
+        foreach (var d in discounts)
+        {
+            events.Add(new LeakageEvent
+            {
+                EventType = "Discount",
+                Actor = d.CashierName,
+                BillNo = d.BillNo,
+                AmountPaise = d.DiscountPaise,
+                Reason = string.IsNullOrWhiteSpace(d.DiscountReason) ? "Manager Discretion" : d.DiscountReason,
+                Approver = string.IsNullOrWhiteSpace(d.DiscountApprover) ? d.CashierName : d.DiscountApprover,
+                Detail = $"Discount on bill {d.BillNo}",
+                Timestamp = d.PaidAt ?? DateTime.Now
+            });
+        }
+
+        // 2. Reprints and Voids from audit log
+        var audits = connection.Query<AuditEntryRaw>(
+            """
+            SELECT actor, action, detail, created_at
+            FROM audit_log
+            WHERE date(created_at) >= @startDate
+              AND (action LIKE '%reprint%' OR action LIKE '%cancel%' OR action LIKE '%void%')
+            ORDER BY created_at DESC;
+            """, new { startDate });
+
+        foreach (var a in audits)
+        {
+            var isReprint = a.Action.Contains("reprint", StringComparison.OrdinalIgnoreCase);
+            events.Add(new LeakageEvent
+            {
+                EventType = isReprint ? "Reprint" : "Cancelled / Void",
+                Actor = a.Actor,
+                BillNo = "",
+                AmountPaise = 0,
+                Reason = a.Action,
+                Approver = a.Actor,
+                Detail = a.Detail,
+                Timestamp = DateTime.TryParse(a.CreatedAt, out var ts) ? ts : DateTime.Now
+            });
+        }
+
+        return events.OrderByDescending(e => e.Timestamp).ToList();
+    }
+
+    private sealed class AuditEntryRaw
+    {
+        public string Actor { get; set; } = "";
+        public string Action { get; set; } = "";
+        public string Detail { get; set; } = "";
+        public string CreatedAt { get; set; } = "";
     }
 
     private string NextBillNo(SqliteConnection connection, SqliteTransaction transaction)

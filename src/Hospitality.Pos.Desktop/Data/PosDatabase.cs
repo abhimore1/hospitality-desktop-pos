@@ -43,7 +43,9 @@ public sealed class PosDatabase
         using var connection = Open();
         connection.Execute("PRAGMA journal_mode = WAL;");
         CreateSchema(connection);
+        EnsureEnhancedSchema(connection);
         DemoDataSeeder.Seed(connection);
+        DemoDataSeeder.EnsureDemoDay(connection);
     }
 
     private static void CreateSchema(SqliteConnection connection)
@@ -183,6 +185,103 @@ public sealed class PosDatabase
         {
             connection.Execute("ALTER TABLE sync_outbox ADD COLUMN last_error TEXT NULL;");
         }
+    }
+
+    private static void EnsureEnhancedSchema(SqliteConnection connection)
+    {
+        // 1. orders columns
+        var orderColumns = connection.Query<TableColumnInfo>("PRAGMA table_info(orders);")
+            .Select(c => c.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (!orderColumns.Contains("customer_phone"))
+            connection.Execute("ALTER TABLE orders ADD COLUMN customer_phone TEXT NOT NULL DEFAULT '';");
+        if (!orderColumns.Contains("customer_gstin"))
+            connection.Execute("ALTER TABLE orders ADD COLUMN customer_gstin TEXT NOT NULL DEFAULT '';");
+        if (!orderColumns.Contains("discount_reason"))
+            connection.Execute("ALTER TABLE orders ADD COLUMN discount_reason TEXT NOT NULL DEFAULT '';");
+        if (!orderColumns.Contains("discount_approver"))
+            connection.Execute("ALTER TABLE orders ADD COLUMN discount_approver TEXT NOT NULL DEFAULT '';");
+        if (!orderColumns.Contains("reprint_count"))
+            connection.Execute("ALTER TABLE orders ADD COLUMN reprint_count INTEGER NOT NULL DEFAULT 0;");
+        if (!orderColumns.Contains("room_number"))
+            connection.Execute("ALTER TABLE orders ADD COLUMN room_number TEXT NOT NULL DEFAULT '';");
+
+        // 2. order_items columns
+        var itemColumns = connection.Query<TableColumnInfo>("PRAGMA table_info(order_items);")
+            .Select(c => c.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (!itemColumns.Contains("station"))
+            connection.Execute("ALTER TABLE order_items ADD COLUMN station TEXT NOT NULL DEFAULT 'Kitchen';");
+        if (!itemColumns.Contains("status"))
+            connection.Execute("ALTER TABLE order_items ADD COLUMN status TEXT NOT NULL DEFAULT 'active';");
+        if (!itemColumns.Contains("cancel_reason"))
+            connection.Execute("ALTER TABLE order_items ADD COLUMN cancel_reason TEXT NULL;");
+        if (!itemColumns.Contains("cancel_approver"))
+            connection.Execute("ALTER TABLE order_items ADD COLUMN cancel_approver TEXT NULL;");
+        if (!itemColumns.Contains("course"))
+            connection.Execute("ALTER TABLE order_items ADD COLUMN course TEXT NOT NULL DEFAULT 'Main';");
+
+        // 3. menu_items columns
+        var menuColumns = connection.Query<TableColumnInfo>("PRAGMA table_info(menu_items);")
+            .Select(c => c.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (!menuColumns.Contains("station"))
+            connection.Execute("ALTER TABLE menu_items ADD COLUMN station TEXT NOT NULL DEFAULT 'Kitchen';");
+        if (!menuColumns.Contains("is_favorite"))
+            connection.Execute("ALTER TABLE menu_items ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0;");
+
+        // 4. order_payments table
+        connection.Execute(
+            """
+            CREATE TABLE IF NOT EXISTS order_payments (
+                id TEXT PRIMARY KEY,
+                order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+                method TEXT NOT NULL,
+                amount_paise INTEGER NOT NULL,
+                reference TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_order_payments_order ON order_payments(order_id);
+            """);
+
+        // 5. hotel_rooms table
+        connection.Execute(
+            """
+            CREATE TABLE IF NOT EXISTS hotel_rooms (
+                id INTEGER PRIMARY KEY,
+                room_number TEXT NOT NULL UNIQUE,
+                guest_name TEXT NOT NULL,
+                phone TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'occupied',
+                folio_balance_paise INTEGER NOT NULL DEFAULT 0,
+                check_in TEXT NOT NULL
+            );
+            """);
+
+        // 6. day_end_closures table
+        connection.Execute(
+            """
+            CREATE TABLE IF NOT EXISTS day_end_closures (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                closure_date TEXT NOT NULL,
+                closed_by TEXT NOT NULL,
+                total_sales_paise INTEGER NOT NULL,
+                total_tax_paise INTEGER NOT NULL,
+                total_discount_paise INTEGER NOT NULL,
+                system_cash_paise INTEGER NOT NULL,
+                counted_cash_paise INTEGER NOT NULL,
+                cash_variance_paise INTEGER NOT NULL,
+                denominations_json TEXT NOT NULL DEFAULT '{}',
+                unsynced_count INTEGER NOT NULL DEFAULT 0,
+                open_orders_count INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                notes TEXT NOT NULL DEFAULT ''
+            );
+            CREATE INDEX IF NOT EXISTS ix_day_end_closures_date ON day_end_closures(closure_date);
+            """);
     }
 
     private sealed class TableColumnInfo

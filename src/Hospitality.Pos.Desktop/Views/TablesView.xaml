@@ -73,13 +73,24 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Border Width="36" Height="36" CornerRadius="11" Background="{StaticResource VioletSoftBrush}" VerticalAlignment="Center">
-                        <Path Data="{StaticResource IconStore}" Width="17" Height="17" Stretch="Uniform"
-                              Fill="{StaticResource VioletBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Border Width="36" Height="36" CornerRadius="11" Background="{StaticResource WarningSoftBrush}" VerticalAlignment="Center">
+                        <Path Data="{StaticResource IconClock}" Width="17" Height="17" Stretch="Uniform"
+                              Fill="{StaticResource WarningBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                     <StackPanel Grid.Column="1" Margin="11,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="Floor plan" Style="{StaticResource TextCaption}" />
-                        <TextBlock Text="{Binding TotalText}" Style="{StaticResource TextNumericSmall}" FontSize="22" />
+                        <TextBlock Text="Long wait" Style="{StaticResource TextCaption}" />
+                        <TextBlock Text="{Binding LongOpenText}" FontSize="22">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource TextNumericSmall}">
+                                    <Setter Property="Foreground" Value="{StaticResource InkBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasLongOpen}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource WarningStrongBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -97,7 +108,7 @@
                                         <TextBlock Text="{Binding Summary}" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
                                     </StackPanel>
                                     <Border Style="{StaticResource Pill}" HorizontalAlignment="Right" VerticalAlignment="Top">
-                                        <TextBlock Text="DINE-IN" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
+                                        <TextBlock Text="DINE-IN" FontSize="12" FontWeight="Bold" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" />
                                     </Border>
                                 </Grid>
 
@@ -110,8 +121,10 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Button Style="{StaticResource TableCardButton}"
-                                                    Height="128"
+                                                    MinHeight="148"
                                                     Margin="0,0,10,10"
+                                                    AutomationProperties.Name="{Binding Name}"
+                                                    AutomationProperties.HelpText="{Binding StatusLabel}"
                                                     Command="{Binding DataContext.OpenTableCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}">
                                                 <Grid Margin="14">
@@ -133,26 +146,35 @@
                                                             <TextBlock Text="{Binding Name}" FontFamily="{StaticResource FontDisplay}"
                                                                        FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
                                                             <Border Background="{Binding StatusBackground}" CornerRadius="9" Padding="8,3"
-                                                                    HorizontalAlignment="Right" VerticalAlignment="Center">
-                                                                <TextBlock Text="{Binding StatusLabel}" FontSize="9.5" FontWeight="SemiBold"
+                                                                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                                    Visibility="{Binding IsOccupied, Converter={StaticResource BoolToVisibility}}">
+                                                                <TextBlock Text="{Binding StatusLabel}" FontSize="12" FontWeight="SemiBold"
                                                                            Foreground="{Binding StatusBrush}" />
                                                             </Border>
                                                         </Grid>
 
                                                         <TextBlock Grid.Row="1" Text="{Binding SeatsText}" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
 
-                                                        <StackPanel Grid.Row="2" VerticalAlignment="Center" Margin="0,6,0,0">
-                                                            <TextBlock Text="{Binding AmountText}" FontSize="17" FontWeight="SemiBold"
+                                                        <StackPanel Grid.Row="2" VerticalAlignment="Center" Margin="0,6,0,0"
+                                                                    Visibility="{Binding IsOccupied, Converter={StaticResource BoolToVisibility}}">
+                                                            <TextBlock Text="{Binding AmountText}" FontSize="18" FontWeight="SemiBold"
                                                                        Foreground="{StaticResource InkBrush}" />
-                                                            <TextBlock Text="{Binding ElapsedText}" FontSize="10.5"
-                                                                       Foreground="{StaticResource MutedLightBrush}" />
+                                                            <TextBlock Text="{Binding ElapsedText}" FontSize="12"
+                                                                       Foreground="{StaticResource MutedBrush}" />
                                                         </StackPanel>
 
                                                         <Grid Grid.Row="3" Margin="0,6,0,0">
-                                                            <TextBlock Text="{Binding ActionLabel}" FontSize="11" FontWeight="SemiBold"
+                                                            <TextBlock Text="{Binding ActionLabel}" FontSize="12" FontWeight="SemiBold"
                                                                        Foreground="{StaticResource Brand700Brush}" VerticalAlignment="Center" />
-                                                            <Path Data="{StaticResource IconArrowRight}" Width="13" Height="13" Stretch="Uniform"
-                                                                  Fill="{StaticResource Brand700Brush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                                <Button Style="{StaticResource SecondaryButton}" Height="24" Padding="8,0" Margin="0,0,6,0" FontSize="10.5"
+                                                                        Content="Merge"
+                                                                        Visibility="{Binding IsOccupied, Converter={StaticResource BoolToVisibility}}"
+                                                                        Command="{Binding DataContext.OpenMergeDialogCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                        CommandParameter="{Binding}" />
+                                                                <Path Data="{StaticResource IconArrowRight}" Width="13" Height="13" Stretch="Uniform"
+                                                                      Fill="{StaticResource Brand700Brush}" VerticalAlignment="Center" />
+                                                            </StackPanel>
                                                         </Grid>
                                                     </Grid>
                                                 </Grid>
@@ -166,5 +188,67 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
         </ScrollViewer>
+
+        <!-- ============================= Table Merge Dialog ============================= -->
+        <Grid Grid.RowSpan="2" Background="{StaticResource ScrimBrush}"
+              Visibility="{Binding IsMergeDialogOpen, Converter={StaticResource BoolToVisibility}}">
+            <Border Style="{StaticResource ElevatedCard}" Width="480" Padding="28"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource IconTables}" Width="20" Height="20" Stretch="Uniform" Fill="{StaticResource Brand700Brush}" VerticalAlignment="Center" />
+                        <TextBlock Text="Merge Dining Tables" FontSize="17" FontWeight="SemiBold" Margin="10,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="Transfer all items from an active table into another table's open bill."
+                               FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="0,6,0,18" />
+
+                    <!-- Source table summary -->
+                    <Border Background="{StaticResource WarningSoftBrush}" BorderBrush="{StaticResource WarningBrush}" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,14">
+                        <Grid>
+                            <StackPanel>
+                                <TextBlock Text="SOURCE TABLE (WILL BE FREED)" FontSize="9.5" FontWeight="Bold" Foreground="{StaticResource WarningStrongBrush}" />
+                                <TextBlock Text="{Binding MergeSourceTable.Name}" FontSize="16" FontWeight="Bold" Margin="0,2,0,0" />
+                                <TextBlock Text="{Binding MergeSourceTable.ElapsedText}" FontSize="11" Foreground="{StaticResource MutedBrush}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding MergeSourceTable.AmountText}" Style="{StaticResource TextNumericSmall}" FontSize="20"
+                                       Foreground="{StaticResource WarningStrongBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
+
+                    <TextBlock Text="MERGE INTO TARGET TABLE" Style="{StaticResource TextOverline}" Margin="0,0,0,6" />
+                    <ComboBox ItemsSource="{Binding AvailableTargetTables}" SelectedItem="{Binding MergeTargetTable}" Height="40" Margin="0,0,0,16">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Width="380">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" />
+                                        <TextBlock Text="{Binding StatusLabel, StringFormat= • {0}}" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="4,0,0,0" />
+                                        <TextBlock Text="{Binding SeatsText, StringFormat= • {0}}" FontSize="12" Foreground="{StaticResource MutedLightBrush}" Margin="4,0,0,0" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding AmountText}" FontWeight="SemiBold" HorizontalAlignment="Right" FontSize="13"
+                                               Foreground="{StaticResource Brand800Brush}" />
+                                </Grid>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <Border Background="{StaticResource SurfaceTintBrush}" CornerRadius="8" Padding="12,8" Margin="0,0,0,20">
+                        <TextBlock Text="Audit note: All items from the source table will move to the target table, and a 'table.merged' record will be logged."
+                                   FontSize="11.5" Foreground="{StaticResource MutedBrush}" TextWrapping="Wrap" />
+                    </Border>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Button Style="{StaticResource GhostButton}" Content="Cancel" Height="44" Margin="0,0,6,0"
+                                Command="{Binding CancelMergeDialogCommand}" />
+                        <Button Grid.Column="1" Style="{StaticResource PrimaryButton}" Content="Confirm Merge" Height="44" Margin="6,0,0,0"
+                                Command="{Binding ConfirmMergeCommand}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>

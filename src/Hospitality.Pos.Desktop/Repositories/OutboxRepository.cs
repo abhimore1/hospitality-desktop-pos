@@ -18,6 +18,66 @@ public sealed class OutboxRepository
         return connection.ExecuteScalar<int>("SELECT COUNT(*) FROM sync_outbox WHERE synced = 0;");
     }
 
+    /// <summary>Best-effort pending count for error/status reporting paths.</summary>
+    public int SafeCountPending()
+    {
+        try
+        {
+            return CountPending();
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    public int CountFailedPending()
+    {
+        using var connection = _database.Open();
+        return connection.ExecuteScalar<int>(
+            """
+            SELECT COUNT(*)
+            FROM sync_outbox
+            WHERE synced = 0 AND last_error IS NOT NULL AND TRIM(last_error) <> '';
+            """);
+    }
+
+    public int SafeCountFailedPending()
+    {
+        try
+        {
+            return CountFailedPending();
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    public DateTime? GetOldestPendingCreatedAt()
+    {
+        using var connection = _database.Open();
+        var value = connection.ExecuteScalar<string?>(
+            """
+            SELECT MIN(created_at)
+            FROM sync_outbox
+            WHERE synced = 0;
+            """);
+        return DateTime.TryParse(value, out var createdAt) ? createdAt : null;
+    }
+
+    public DateTime? SafeGetOldestPendingCreatedAt()
+    {
+        try
+        {
+            return GetOldestPendingCreatedAt();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public IReadOnlyList<OutboxEntry> GetPending(int limit = 50)
     {
         using var connection = _database.Open();

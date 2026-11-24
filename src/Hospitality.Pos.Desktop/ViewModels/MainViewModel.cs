@@ -280,7 +280,7 @@ public partial class MainViewModel : ObservableObject
         StaffName = staff?.Name ?? "Not signed in";
         StaffRole = staff?.RoleLabel ?? "";
         Initials = staff?.Initials ?? "?";
-        AvatarBrush = Ui.Brush(staff?.Color ?? "#0F766E");
+        AvatarBrush = Ui.Brush("#0F766E");
         PlanText = $"{config.LicensePlan} plan";
         DateText = DateTime.Now.ToString("ddd, d MMM yyyy");
         ClockText = DateTime.Now.ToString("h:mm tt");

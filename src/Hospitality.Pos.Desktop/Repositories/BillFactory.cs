@@ -22,10 +22,18 @@ public static class BillFactory
         GstRateBps = order.GstRateBps,
         TaxablePaise = order.SubtotalPaise,
         DiscountPaise = order.DiscountPaise,
+        DiscountReason = order.DiscountReason,
+        DiscountApprover = order.DiscountApprover,
+        ReprintCount = order.ReprintCount,
+        CustomerName = order.CustomerName,
+        CustomerPhone = order.CustomerPhone,
+        CustomerGstin = order.CustomerGstin,
+        RoomNumber = order.RoomNumber,
         CgstPaise = order.CgstPaise,
         SgstPaise = order.SgstPaise,
         RoundOffPaise = order.RoundOffPaise,
         TotalPaise = order.TotalPaise,
+        Payments = order.Payments ?? [],
         Lines = order.Items.Select(item => new BillLine
         {
             Name = item.Name,

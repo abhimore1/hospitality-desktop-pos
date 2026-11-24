@@ -1,10 +1,13 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Net.NetworkInformation;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Hospitality.Pos.Desktop.Data;
+using Hospitality.Pos.Desktop.Repositories;
 using Hospitality.Pos.Desktop.Services;
+using Hospitality.Pos.Desktop.Services.Sync;
 
 namespace Hospitality.Pos.Desktop.ViewModels;
 
@@ -15,6 +18,8 @@ public partial class SettingsViewModel : ObservableObject, IRefreshable
     private readonly DataChangeNotifier _notifier;
     private readonly ToastService _toasts;
     private readonly PosDatabase _database;
+    private readonly OutboxRepository _outbox;
+    private readonly ISyncTransport _syncTransport;
     private PosSettings _config = new();
 
     public SettingsViewModel(
@@ -22,13 +27,17 @@ public partial class SettingsViewModel : ObservableObject, IRefreshable
         AppSession session,
         DataChangeNotifier notifier,
         ToastService toasts,
-        PosDatabase database)
+        PosDatabase database,
+        OutboxRepository outbox,
+        ISyncTransport syncTransport)
     {
         _settings = settings;
         _session = session;
         _notifier = notifier;
         _toasts = toasts;
         _database = database;
+        _outbox = outbox;
+        _syncTransport = syncTransport;
 
         GstRates = new ObservableCollection<SelectableChip>
         {
@@ -36,6 +45,7 @@ public partial class SettingsViewModel : ObservableObject, IRefreshable
             new() { Key = "1800", Label = "18% — specified premises" }
         };
 
+        _notifier.Changed += RefreshSyncDiagnostics;
         Refresh();
     }
 
@@ -56,6 +66,11 @@ public partial class SettingsViewModel : ObservableObject, IRefreshable
     [ObservableProperty] private string _databasePath = "";
     [ObservableProperty] private string _databaseSizeText = "";
     [ObservableProperty] private string _saveState = "Saved locally";
+    [ObservableProperty] private string _syncPendingText = "0 pending";
+    [ObservableProperty] private string _syncIssueText = "No pending issues";
+    [ObservableProperty] private string _lastSyncStatusText = "Not attempted yet";
+    [ObservableProperty] private string _connectivityStatusText = "Offline";
+    [ObservableProperty] private string _syncTransportText = "Not configured";
 
     public string TaxModeText => PricesIncludeTax
         ? "Prices on the menu include GST. Tax is shown as a breakdown."
@@ -88,6 +103,56 @@ public partial class SettingsViewModel : ObservableObject, IRefreshable
         {
             rate.IsSelected = rate.Key == _config.GstRateBps.ToString();
         }
+
+        RefreshSyncDiagnostics();
+    }
+
+    private void RefreshSyncDiagnostics()
+    {
+        var pending = _outbox.SafeCountPending();
+        var failed = _outbox.SafeCountFailedPending();
+        var oldestPending = _outbox.SafeGetOldestPendingCreatedAt();
+
+        SyncPendingText = pending == 0 ? "0 pending (all saved locally)" : $"{pending} pending change(s)";
+        if (pending == 0)
+        {
+            SyncIssueText = "No pending issues";
+        }
+        else
+        {
+            var parts = new List<string>();
+            if (failed > 0)
+            {
+                parts.Add($"{failed} with last error");
+            }
+
+            if (oldestPending is not null)
+            {
+                parts.Add($"oldest {oldestPending.Value.ToLocalTime():dd MMM, h:mm tt}");
+            }
+
+            SyncIssueText = parts.Count == 0 ? "Queued, awaiting sync" : string.Join(" · ", parts);
+        }
+
+        var lastStatus = _settings.Get("last_sync_status");
+        var lastAttemptRaw = _settings.Get("last_sync_attempt_at");
+        if (DateTimeOffset.TryParse(lastAttemptRaw, out var lastAttempt))
+        {
+            var when = lastAttempt.ToLocalTime().ToString("dd MMM yyyy, h:mm tt");
+            LastSyncStatusText = string.IsNullOrWhiteSpace(lastStatus)
+                ? $"Last attempt: {when}"
+                : $"{lastStatus} ({when})";
+        }
+        else
+        {
+            LastSyncStatusText = string.IsNullOrWhiteSpace(lastStatus) ? "Not attempted yet" : lastStatus;
+        }
+
+        var online = NetworkInterface.GetIsNetworkAvailable();
+        ConnectivityStatusText = online ? "Online (network available)" : "Offline (network unavailable)";
+        SyncTransportText = _syncTransport.IsConfigured
+            ? "Configured (ready for backend sync)"
+            : "Not configured (local outbox only)";
     }
 
     [RelayCommand]
@@ -154,5 +219,15 @@ public partial class SettingsViewModel : ObservableObject, IRefreshable
         {
             _toasts.Error($"Could not open the folder: {ex.Message}");
         }
+    }
+
+    [RelayCommand]
+    private void RefreshDiagnostics()
+    {
+        DatabaseSizeText = File.Exists(_database.DatabasePath)
+            ? $"{new FileInfo(_database.DatabasePath).Length / 1024d:0.#} KB"
+            : "Not created";
+        RefreshSyncDiagnostics();
+        _toasts.Info("Diagnostics refreshed.");
     }
 }

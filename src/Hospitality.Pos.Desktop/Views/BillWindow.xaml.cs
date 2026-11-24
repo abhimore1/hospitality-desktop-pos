@@ -66,6 +66,11 @@ public partial class BillWindow : Window
             ColumnWidth = double.PositiveInfinity
         };
 
+        if (bill.IsDuplicate)
+        {
+            document.Blocks.Add(Line(bill.DuplicateNotice, 11, FontWeights.Bold, TextAlignment.Center, Frozen("#DC2626"), 0, 0, 6, 0));
+        }
+
         document.Blocks.Add(Line(bill.OutletName, 20, FontWeights.SemiBold, TextAlignment.Center, Ink, 0, 0, 2, 0));
         document.Blocks.Add(Line($"{bill.Address}, {bill.City}", 10, FontWeights.Normal, TextAlignment.Center, Muted, 0, 0, 1, 0));
         document.Blocks.Add(Line($"Phone {bill.Phone}", 10, FontWeights.Normal, TextAlignment.Center, Muted, 0, 0, 1, 0));

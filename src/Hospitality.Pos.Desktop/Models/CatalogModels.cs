@@ -19,6 +19,7 @@ public sealed class MenuItem
     public bool IsVeg { get; set; }
     public bool IsAvailable { get; set; } = true;
     public string HsnSac { get; set; } = "996331";
+    public string Station { get; set; } = "Kitchen";
     public int SortOrder { get; set; }
     public string CategoryName { get; set; } = "";
     public string CategoryColor { get; set; } = "#0F766E";

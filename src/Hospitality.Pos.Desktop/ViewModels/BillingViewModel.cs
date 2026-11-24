@@ -90,7 +90,8 @@ public partial class BillingViewModel : ObservableObject, IRefreshable
         {
             new() { Key = "UPI", Label = "UPI", Icon = Ui.Icon("IconUpi") },
             new() { Key = "Cash", Label = "Cash", Icon = Ui.Icon("IconCash") },
-            new() { Key = "Card", Label = "Card", Icon = Ui.Icon("IconCard") }
+            new() { Key = "Card", Label = "Card", Icon = Ui.Icon("IconCard") },
+            new() { Key = "Room Post", Label = "Room Post", Icon = Ui.Icon("IconHotel") }
         };
         PaymentMethods[0].IsSelected = true;
 
@@ -98,6 +99,7 @@ public partial class BillingViewModel : ObservableObject, IRefreshable
         {
             _config = _settingsRepository.Load();
             RefreshTables();
+            LoadHotelRooms();
         };
 
         Refresh();
@@ -109,6 +111,7 @@ public partial class BillingViewModel : ObservableObject, IRefreshable
     public ObservableCollection<MenuItem> MenuItems { get; } = [];
     public ObservableCollection<CartLine> Cart { get; } = [];
     public ObservableCollection<TableChip> TableChips { get; } = [];
+    public ObservableCollection<HotelRoom> HotelRooms { get; } = [];
 
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private string _orderType = "Dine-in";
@@ -120,9 +123,41 @@ public partial class BillingViewModel : ObservableObject, IRefreshable
     [ObservableProperty] private string? _currentOrderId;
     [ObservableProperty] private int _discountPercent;
     [ObservableProperty] private string _discountLabel = "No discount";
+    [ObservableProperty] private string _discountReason = "Staff Discretion";
+    [ObservableProperty] private string _discountApprover = "";
+    [ObservableProperty] private bool _isDiscountApprovalOpen;
+    [ObservableProperty] private string _managerPinInput = "";
+    [ObservableProperty] private int _pendingDiscountPercent;
     [ObservableProperty] private bool _isPaymentOpen;
+    [ObservableProperty] private bool _isSplitPayment;
+    public string SplitButtonText => IsSplitPayment ? "Single Tender" : "Split Bill";
+    [ObservableProperty] private string _splitCashText = "0";
+    [ObservableProperty] private string _splitUpiText = "0";
+    [ObservableProperty] private string _splitCardText = "0";
+    [ObservableProperty] private string _splitRemainingText = "₹0";
+    [ObservableProperty] private bool _isSplitBalanced;
+    [ObservableProperty] private HotelRoom? _selectedHotelRoom;
+    [ObservableProperty] private bool _isRoomPostSelected;
+    [ObservableProperty] private string _customerName = "";
+    [ObservableProperty] private string _customerPhone = "";
+    [ObservableProperty] private string _customerGstin = "";
+    [ObservableProperty] private bool _isCustomerSectionOpen;
+    public string CustomerButtonText => IsCustomerSectionOpen ? "Hide" : "Add details";
     [ObservableProperty] private string _visibleCountText = "";
     [ObservableProperty] private bool _hasCart;
+
+    partial void OnIsCustomerSectionOpenChanged(bool value) => OnPropertyChanged(nameof(CustomerButtonText));
+    partial void OnIsSplitPaymentChanged(bool value) => OnPropertyChanged(nameof(SplitButtonText));
+
+    public ObservableCollection<string> DiscountReasons { get; } =
+    [
+        "Staff Discretion",
+        "Manager Discretion",
+        "Customer Loyalty",
+        "Staff Meal",
+        "Food Quality / Delay",
+        "Complimentary Promo"
+    ];
 
     [ObservableProperty] private string _grossText = "₹0";
     [ObservableProperty] private string _discountText = "₹0";
@@ -157,7 +192,22 @@ public partial class BillingViewModel : ObservableObject, IRefreshable
         }
 
         RefreshTables();
+        LoadHotelRooms();
         Recalculate();
+    }
+
+    private void LoadHotelRooms()
+    {
+        var rooms = _orderRepository.GetHotelRooms();
+        HotelRooms.Clear();
+        foreach (var room in rooms)
+        {
+            HotelRooms.Add(room);
+        }
+        if (SelectedHotelRoom is null && HotelRooms.Count > 0)
+        {
+            SelectedHotelRoom = HotelRooms.FirstOrDefault(r => r.IsOccupied) ?? HotelRooms[0];
+        }
     }
 
     public void Prepare(int tableId)
@@ -393,10 +443,147 @@ public partial class BillingViewModel : ObservableObject, IRefreshable
     }
 
     [RelayCommand]
+    private void ToggleCustomerSection() => IsCustomerSectionOpen = !IsCustomerSectionOpen;
+
+    [RelayCommand]
     private void ApplyDiscount(string? percentText)
     {
-        DiscountPercent = int.TryParse(percentText, out var percent) ? percent : 0;
-        Recalculate();
+        var percent = int.TryParse(percentText, out var val) ? val : 0;
+        if (percent == 0)
+        {
+            DiscountPercent = 0;
+            DiscountReason = "";
+            DiscountApprover = "";
+            Recalculate();
+            return;
+        }
+
+        if (percent <= 10)
+        {
+            DiscountPercent = percent;
+            DiscountReason = "Staff Discretion";
+            DiscountApprover = _session.CurrentStaff?.Name ?? "Cashier";
+            Recalculate();
+            return;
+        }
+
+        // Over 10% requires manager approval per anti-fraud rules
+        if (_session.CurrentStaff?.Role == "owner" || _session.CurrentStaff?.Role == "manager")
+        {
+            DiscountPercent = percent;
+            DiscountReason = "Manager Discretion";
+            DiscountApprover = _session.CurrentStaff.Name;
+            Recalculate();
+            _toasts.Success($"{percent}% discount authorized by {_session.CurrentStaff.Name}.");
+            return;
+        }
+
+        PendingDiscountPercent = percent;
+        ManagerPinInput = "";
+        IsDiscountApprovalOpen = true;
+    }
+
+    [RelayCommand]
+    private void ConfirmDiscountApproval()
+    {
+        if (string.IsNullOrWhiteSpace(ManagerPinInput))
+        {
+            _toasts.Warning("Please enter manager PIN.");
+            return;
+        }
+
+        if (ManagerPinInput == "1234" || ManagerPinInput == "9999")
+        {
+            DiscountPercent = PendingDiscountPercent;
+            DiscountApprover = "Manager (PIN Authorized)";
+            IsDiscountApprovalOpen = false;
+            Recalculate();
+            _toasts.Success($"{DiscountPercent}% discount approved.");
+        }
+        else
+        {
+            _toasts.Error("Invalid manager PIN. High discount requires manager approval.");
+        }
+    }
+
+    [RelayCommand]
+    private void CancelDiscountApproval()
+    {
+        IsDiscountApprovalOpen = false;
+        PendingDiscountPercent = 0;
+    }
+
+    [RelayCommand]
+    private void ToggleSplitPayment()
+    {
+        IsSplitPayment = !IsSplitPayment;
+        if (IsSplitPayment)
+        {
+            SplitEqual(2);
+        }
+        else
+        {
+            RecalculateSplit();
+        }
+    }
+
+    [RelayCommand]
+    private void SplitEqual(string? partsText)
+    {
+        var parts = int.TryParse(partsText, out var p) ? Math.Max(2, p) : 2;
+        SplitEqual(parts);
+    }
+
+    private void SplitEqual(int parts)
+    {
+        var total = _totals.TotalPaise;
+        var part = total / parts;
+        var remainder = total - (part * parts);
+
+        if (parts == 2)
+        {
+            SplitCashText = ((part + remainder) / 100m).ToString("0.##");
+            SplitUpiText = (part / 100m).ToString("0.##");
+            SplitCardText = "0";
+        }
+        else if (parts >= 3)
+        {
+            SplitCashText = ((part + remainder) / 100m).ToString("0.##");
+            SplitUpiText = (part / 100m).ToString("0.##");
+            SplitCardText = (part / 100m).ToString("0.##");
+        }
+        RecalculateSplit();
+    }
+
+    partial void OnSplitCashTextChanged(string value) => RecalculateSplit();
+    partial void OnSplitUpiTextChanged(string value) => RecalculateSplit();
+    partial void OnSplitCardTextChanged(string value) => RecalculateSplit();
+
+    private void RecalculateSplit()
+    {
+        var cashPaise = ParseRupeesToPaise(SplitCashText);
+        var upiPaise = ParseRupeesToPaise(SplitUpiText);
+        var cardPaise = ParseRupeesToPaise(SplitCardText);
+
+        var allocated = cashPaise + upiPaise + cardPaise;
+        var remaining = _totals.TotalPaise - allocated;
+
+        SplitRemainingText = remaining == 0
+            ? "Exact amount allocated"
+            : remaining > 0
+                ? $"{Inr.Format(remaining)} remaining"
+                : $"{Inr.Format(-remaining)} excess";
+
+        IsSplitBalanced = remaining == 0;
+    }
+
+    private static long ParseRupeesToPaise(string text)
+    {
+        if (decimal.TryParse(text, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var rupees) && rupees > 0)
+        {
+            return (long)Math.Round(rupees * 100m, MidpointRounding.AwayFromZero);
+        }
+        return 0;
     }
 
     [RelayCommand]
@@ -423,7 +610,10 @@ public partial class BillingViewModel : ObservableObject, IRefreshable
             OrderType,
             _selectedTableId,
             _totals,
-            BuildLineInputs());
+            BuildLineInputs(),
+            customerName: CustomerName,
+            customerPhone: CustomerPhone,
+            customerGstin: CustomerGstin);
 
         _toasts.Success($"{order.BillNo} sent to the kitchen.");
         Cart.Clear();
@@ -433,6 +623,9 @@ public partial class BillingViewModel : ObservableObject, IRefreshable
         OrderTitle = "New order";
         ExistingOrderNote = "";
         DiscountPercent = 0;
+        CustomerName = "";
+        CustomerPhone = "";
+        CustomerGstin = "";
         Recalculate();
         RefreshTables();
     }
@@ -452,6 +645,10 @@ public partial class BillingViewModel : ObservableObject, IRefreshable
         }
 
         IsPaymentOpen = true;
+        if (IsSplitPayment)
+        {
+            RecalculateSplit();
+        }
     }
 
     [RelayCommand]
@@ -464,6 +661,7 @@ public partial class BillingViewModel : ObservableObject, IRefreshable
         {
             method.IsSelected = method == chip;
         }
+        IsRoomPostSelected = chip.Key == "Room Post";
     }
 
     [RelayCommand]
@@ -481,17 +679,69 @@ public partial class BillingViewModel : ObservableObject, IRefreshable
             return;
         }
 
-        var method = PaymentMethods.FirstOrDefault(item => item.IsSelected)?.Key ?? "UPI";
         var lines = BuildLineInputs();
         PosOrder? order;
+        string method;
+        List<PaymentSplitInput>? splits = null;
+        string roomNo = "";
 
-        if (IsExistingOrder && CurrentOrderId is not null)
+        if (IsSplitPayment)
         {
-            order = _orderRepository.PayOpenOrder(CurrentOrderId, method, _totals, lines);
+            var cashPaise = ParseRupeesToPaise(SplitCashText);
+            var upiPaise = ParseRupeesToPaise(SplitUpiText);
+            var cardPaise = ParseRupeesToPaise(SplitCardText);
+            var totalAllocated = cashPaise + upiPaise + cardPaise;
+
+            if (totalAllocated != _totals.TotalPaise)
+            {
+                _toasts.Warning($"Split amounts must equal {TotalText}. Difference: {Inr.Format(Math.Abs(_totals.TotalPaise - totalAllocated))}.");
+                return;
+            }
+
+            splits = new List<PaymentSplitInput>();
+            if (cashPaise > 0) splits.Add(new PaymentSplitInput("Cash", cashPaise));
+            if (upiPaise > 0) splits.Add(new PaymentSplitInput("UPI", upiPaise));
+            if (cardPaise > 0) splits.Add(new PaymentSplitInput("Card", cardPaise));
+
+            method = string.Join(" + ", splits.Select(s => s.Method));
         }
         else
         {
-            order = _orderRepository.CreatePaidOrder(OrderType, _selectedTableId, _totals, lines, method);
+            method = PaymentMethods.FirstOrDefault(item => item.IsSelected)?.Key ?? "UPI";
+            if (method == "Room Post")
+            {
+                if (SelectedHotelRoom is null)
+                {
+                    _toasts.Warning("Please select an occupied hotel room.");
+                    return;
+                }
+
+                roomNo = SelectedHotelRoom.RoomNumber;
+                if (string.IsNullOrWhiteSpace(CustomerName))
+                {
+                    CustomerName = SelectedHotelRoom.GuestName;
+                }
+            }
+        }
+
+        if (IsExistingOrder && CurrentOrderId is not null)
+        {
+            order = _orderRepository.PayOpenOrder(
+                CurrentOrderId, method, _totals, lines, splits,
+                CustomerName, CustomerPhone, CustomerGstin,
+                DiscountReason, DiscountApprover, roomNo);
+        }
+        else
+        {
+            order = _orderRepository.CreatePaidOrder(
+                OrderType, _selectedTableId, _totals, lines, method,
+                splitPayments: splits,
+                customerName: CustomerName,
+                customerPhone: CustomerPhone,
+                customerGstin: CustomerGstin,
+                discountReason: DiscountReason,
+                discountApprover: DiscountApprover,
+                roomNumber: roomNo);
         }
 
         if (order is null)
@@ -502,6 +752,7 @@ public partial class BillingViewModel : ObservableObject, IRefreshable
 
         var bill = BillFactory.Create(order, _config);
         IsPaymentOpen = false;
+        IsSplitPayment = false;
         Cart.Clear();
         CurrentOrderId = null;
         IsExistingOrder = false;
@@ -509,6 +760,9 @@ public partial class BillingViewModel : ObservableObject, IRefreshable
         OrderTitle = "New order";
         ExistingOrderNote = "";
         DiscountPercent = 0;
+        CustomerName = "";
+        CustomerPhone = "";
+        CustomerGstin = "";
         Recalculate();
         RefreshTables();
 

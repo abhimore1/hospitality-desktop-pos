@@ -58,7 +58,7 @@
 
                 <TextBlock Grid.Row="1"
                            Text="WORKSPACE"
-                           FontSize="9"
+                           FontSize="12"
                            FontWeight="SemiBold"
                            Foreground="#7FA8A2"
                            Margin="26,10,0,8" />
@@ -84,7 +84,7 @@
                                       HorizontalAlignment="Left" />
                                 <TextBlock Grid.Column="1"
                                            Text="{Binding Title}"
-                                           FontSize="13.5"
+                                           FontSize="14"
                                            FontWeight="SemiBold"
                                            Margin="12,0,0,0"
                                            VerticalAlignment="Center" />
@@ -114,7 +114,7 @@
                             </Border>
                             <StackPanel Grid.Column="1" Margin="10,0,4,0" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding StaffName}" FontSize="12.5" FontWeight="SemiBold" Foreground="White" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding StaffRole}" FontSize="10.5" Foreground="{StaticResource OnBrandMutedBrush}" />
+                                <TextBlock Text="{Binding StaffRole}" FontSize="12" Foreground="{StaticResource OnBrandMutedBrush}" />
                             </StackPanel>
                             <Button Grid.Column="2"
                                     Style="{StaticResource IconButton}"
@@ -129,8 +129,8 @@
                 </StackPanel>
 
                 <StackPanel Grid.Row="4" Margin="26,14,24,0">
-                    <TextBlock Text="{Binding PlanText}" FontSize="10.5" Foreground="{StaticResource OnBrandMutedBrush}" />
-                    <TextBlock Text="Offline-first POS · v0.1" FontSize="10" Foreground="#6F9892" Margin="0,3,0,0" />
+                    <TextBlock Text="{Binding PlanText}" FontSize="12" Foreground="{StaticResource OnBrandMutedBrush}" />
+                    <TextBlock Text="Offline-first POS · v0.1" FontSize="12" Foreground="#6F9892" Margin="0,3,0,0" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -146,7 +146,7 @@
             <!-- Window chrome strip -->
             <Grid Grid.Row="0" Background="{StaticResource SurfaceBaseBrush}">
                 <TextBlock Text="{Binding TerminalText}"
-                           FontSize="10.5"
+                           FontSize="12"
                            Foreground="{StaticResource MutedLightBrush}"
                            VerticalAlignment="Center"
                            Margin="24,0,0,0" />
@@ -190,7 +190,7 @@
                         <Border Background="{StaticResource SurfaceMutedBrush}" CornerRadius="14" Height="30" Padding="12,0" VerticalAlignment="Center">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse Width="7" Height="7" Fill="{Binding ConnectivityBrush}" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding ConnectivityText}" FontSize="11.5" FontWeight="SemiBold"
+                                <TextBlock Text="{Binding ConnectivityText}" FontSize="12" FontWeight="SemiBold"
                                            Foreground="{StaticResource InkSoftBrush}" Margin="7,0,0,0" />
                             </StackPanel>
                         </Border>
@@ -203,7 +203,7 @@
                                 ToolTip="{Binding SyncToolTip}">
                             <StackPanel Orientation="Horizontal">
                                 <Path Data="{StaticResource IconSync}" Width="14" Height="14" Stretch="Uniform" Fill="{StaticResource MutedBrush}" VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding SyncText}" FontSize="11.5" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="6,0,0,0" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding SyncText}" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="6,0,0,0" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
 

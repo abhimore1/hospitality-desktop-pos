@@ -5,14 +5,18 @@
     <ScrollViewer Style="{StaticResource PlainScrollViewer}">
         <StackPanel Margin="0,0,4,0">
 
+            <!-- Top Header & Tabs Bar -->
             <Grid Margin="0,0,0,14">
                 <StackPanel>
-                    <TextBlock Text="Performance" Style="{StaticResource TextH2}" />
-                    <TextBlock Text="Tax-ready summaries for the selected period."
+                    <TextBlock Text="Reports &amp; Financials" Style="{StaticResource TextH2}" />
+                    <TextBlock Text="Tax-ready accounting, anti-fraud audit logs, and day-end closing."
                                Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
                 </StackPanel>
+
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <ItemsControl ItemsSource="{Binding Periods}" VerticalAlignment="Center">
+                    <!-- Period Filter (shown for performance & leakage) -->
+                    <ItemsControl ItemsSource="{Binding Periods}" VerticalAlignment="Center"
+                                  Visibility="{Binding IsDayEndTab, Converter={StaticResource InverseBoolToVisibility}}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Orientation="Horizontal" />
@@ -29,7 +33,20 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <Button Style="{StaticResource SecondaryButton}" Height="38" Margin="10,0,0,0"
+
+                    <!-- Export Tally XML -->
+                    <Button Style="{StaticResource SecondaryButton}" Height="38" Margin="8,0,0,0"
+                            Command="{Binding ExportTallyXmlCommand}"
+                            ToolTip="Export accounting vouchers in standard Tally XML format">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Data="{StaticResource IconDatabase}" Width="14" Height="14" Stretch="Uniform"
+                                  Fill="{StaticResource InkSoftBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="Tally XML" FontSize="12" FontWeight="SemiBold" Margin="7,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Export CSV -->
+                    <Button Style="{StaticResource SecondaryButton}" Height="38" Margin="6,0,0,0"
                             Command="{Binding ExportCsvCommand}">
                         <StackPanel Orientation="Horizontal">
                             <Path Data="{StaticResource IconDownload}" Width="14" Height="14" Stretch="Uniform"
@@ -40,253 +57,616 @@
                 </StackPanel>
             </Grid>
 
-            <Grid Margin="0,0,0,16">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
+            <!-- Navigation Tabs -->
+            <ItemsControl ItemsSource="{Binding ReportTabs}" Margin="0,0,0,16">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Style="{StaticResource FilterChipButton}"
+                                Content="{Binding Label}"
+                                Height="36"
+                                Margin="0,0,8,0"
+                                Command="{Binding DataContext.SelectTabCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                CommandParameter="{Binding}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
-                <Border Grid.Column="0" Style="{StaticResource Card}" Padding="18" Margin="0,0,6,0">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <Border Width="30" Height="30" CornerRadius="9" Background="{StaticResource Brand50Brush}">
-                                <Path Data="{StaticResource IconReports}" Width="15" Height="15" Stretch="Uniform"
-                                      Fill="{StaticResource Brand700Brush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <TextBlock Text="Net sales" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="9,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding SalesText}" Style="{StaticResource TextNumeric}" Margin="0,10,0,0" />
-                        <TextBlock Text="{Binding PeriodLabel}" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
-                    </StackPanel>
-                </Border>
+            <!-- ========================================== -->
+            <!-- TAB 0: PERFORMANCE OVERVIEW                -->
+            <!-- ========================================== -->
+            <StackPanel Visibility="{Binding IsPerformanceTab, Converter={StaticResource BoolToVisibility}}">
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
 
-                <Border Grid.Column="1" Style="{StaticResource Card}" Padding="18" Margin="6,0">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <Border Width="30" Height="30" CornerRadius="9" Background="{StaticResource InfoSoftBrush}">
-                                <Path Data="{StaticResource IconBilling}" Width="15" Height="15" Stretch="Uniform"
-                                      Fill="{StaticResource InfoBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <TextBlock Text="Bills settled" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="9,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding OrdersText}" Style="{StaticResource TextNumeric}" Margin="0,10,0,0" />
-                        <TextBlock Text="paid checks in period" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
-                    </StackPanel>
-                </Border>
-
-                <Border Grid.Column="2" Style="{StaticResource Card}" Padding="18" Margin="6,0">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <Border Width="30" Height="30" CornerRadius="9" Background="{StaticResource VioletSoftBrush}">
-                                <Path Data="{StaticResource IconTag}" Width="15" Height="15" Stretch="Uniform"
-                                      Fill="{StaticResource VioletBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <TextBlock Text="Average bill" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="9,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding AverageText}" Style="{StaticResource TextNumeric}" Margin="0,10,0,0" />
-                        <TextBlock Text="per guest check" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
-                    </StackPanel>
-                </Border>
-
-                <Border Grid.Column="3" Style="{StaticResource Card}" Padding="18" Margin="6,0,0,0">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <Border Width="30" Height="30" CornerRadius="9" Background="{StaticResource SuccessSoftBrush}">
-                                <Path Data="{StaticResource IconShield}" Width="15" Height="15" Stretch="Uniform"
-                                      Fill="{StaticResource SuccessBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <TextBlock Text="GST collected" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="9,0,0,0" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <TextBlock Text="{Binding TaxText}" Style="{StaticResource TextNumeric}" Margin="0,10,0,0" />
-                        <TextBlock Text="{Binding CgstText, StringFormat=CGST {0}}" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
-                    </StackPanel>
-                </Border>
-            </Grid>
-
-            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
-                <StackPanel>
-                    <Grid>
+                    <Border Grid.Column="0" Style="{StaticResource Card}" Padding="18" Margin="0,0,6,0">
                         <StackPanel>
-                            <TextBlock Text="Daily sales" Style="{StaticResource TextH3}" />
-                            <TextBlock Text="{Binding PeakDayText, StringFormat=Peak · {0}}" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
-                        </StackPanel>
-                        <Border Style="{StaticResource PillBrand}" HorizontalAlignment="Right" VerticalAlignment="Top">
-                            <TextBlock Text="{Binding PeriodLabel}" FontSize="9.5" FontWeight="Bold"
-                                       Foreground="{StaticResource Brand800Brush}" VerticalAlignment="Center" />
-                        </Border>
-                    </Grid>
-
-                    <Border Height="1" Background="{StaticResource DividerBrush}" Margin="0,14,0,0" />
-
-                    <ItemsControl ItemsSource="{Binding Daily}" Margin="0,18,0,0">
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <UniformGrid Rows="1" Columns="{Binding Days}" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid ToolTip="{Binding TotalText}" Margin="1,0">
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="160" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-                                    <Border Height="{Binding BarHeight}"
-                                            CornerRadius="4,4,2,2"
-                                            VerticalAlignment="Bottom"
-                                            Margin="3,0"
-                                            MinHeight="5">
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Setter Property="Background" Value="{StaticResource Brand600Brush}" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsPeak}" Value="True">
-                                                        <Setter Property="Background" Value="{StaticResource AmberBrush}" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-                                    </Border>
-                                    <TextBlock Grid.Row="1" Text="{Binding Label}" FontSize="8.5"
-                                               Foreground="{StaticResource MutedLightBrush}"
-                                               HorizontalAlignment="Center" Margin="0,7,0,0" />
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </Border>
-
-            <Grid Margin="0,0,0,16">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,8,0">
-                    <StackPanel>
-                        <TextBlock Text="Payment mix" Style="{StaticResource TextH3}" />
-                        <TextBlock Text="How guests settled their bills" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
-
-                        <ItemsControl ItemsSource="{Binding PaymentMix}" Margin="0,16,0,0">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel Margin="0,0,0,13">
-                                        <Grid>
-                                            <StackPanel Orientation="Horizontal">
-                                                <Ellipse Width="8" Height="8" Fill="{Binding Color}" VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding Label}" FontSize="12" FontWeight="SemiBold" Margin="7,0,0,0" />
-                                                <TextBlock Text="{Binding CountText}" FontSize="10.5" Foreground="{StaticResource MutedLightBrush}"
-                                                           Margin="8,0,0,0" VerticalAlignment="Center" />
-                                            </StackPanel>
-                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                                <TextBlock Text="{Binding TotalText}" FontSize="12" FontWeight="SemiBold" />
-                                                <TextBlock Text="{Binding ShareText}" FontSize="10.5" Foreground="{StaticResource MutedBrush}"
-                                                           Width="38" TextAlignment="Right" />
-                                            </StackPanel>
-                                        </Grid>
-                                        <ProgressBar Value="{Binding SharePercent, Mode=OneWay}" Maximum="100"
-                                                     Style="{StaticResource MeterBar}"
-                                                     Foreground="{Binding Color}"
-                                                     Margin="0,6,0,0" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </Border>
-
-                <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0">
-                    <StackPanel>
-                        <TextBlock Text="Category mix" Style="{StaticResource TextH3}" />
-                        <TextBlock Text="Where revenue came from" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
-
-                        <ItemsControl ItemsSource="{Binding CategoryMix}" Margin="0,16,0,0">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <StackPanel Margin="0,0,0,13">
-                                        <Grid>
-                                            <StackPanel Orientation="Horizontal">
-                                                <Ellipse Width="8" Height="8" Fill="{Binding Color}" VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding Label}" FontSize="12" FontWeight="SemiBold" Margin="7,0,0,0" />
-                                                <TextBlock Text="{Binding CountText}" FontSize="10.5" Foreground="{StaticResource MutedLightBrush}"
-                                                           Margin="8,0,0,0" VerticalAlignment="Center" />
-                                            </StackPanel>
-                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                                <TextBlock Text="{Binding TotalText}" FontSize="12" FontWeight="SemiBold" />
-                                                <TextBlock Text="{Binding ShareText}" FontSize="10.5" Foreground="{StaticResource MutedBrush}"
-                                                           Width="38" TextAlignment="Right" />
-                                            </StackPanel>
-                                        </Grid>
-                                        <ProgressBar Value="{Binding SharePercent, Mode=OneWay}" Maximum="100"
-                                                     Style="{StaticResource MeterBar}"
-                                                     Foreground="{Binding Color}"
-                                                     Margin="0,6,0,0" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </Border>
-            </Grid>
-
-            <Border Style="{StaticResource Card}" Margin="0,0,0,16">
-                <StackPanel>
-                    <Grid>
-                        <StackPanel>
-                            <TextBlock Text="Best sellers" Style="{StaticResource TextH3}" />
-                            <TextBlock Text="Ranked by quantity sold in the period" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
-                        </StackPanel>
-                        <Border Style="{StaticResource PillSuccess}" HorizontalAlignment="Right" VerticalAlignment="Top">
-                            <TextBlock Text="TOP 8" FontSize="9.5" FontWeight="Bold"
-                                       Foreground="{StaticResource SuccessStrongBrush}" VerticalAlignment="Center" />
-                        </Border>
-                    </Grid>
-
-                    <Grid Margin="0,16,0,7">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="1.6*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="70" />
-                            <ColumnDefinition Width="100" />
-                            <ColumnDefinition Width="110" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="ITEM" Style="{StaticResource TextOverline}" />
-                        <TextBlock Grid.Column="1" Text="CATEGORY" Style="{StaticResource TextOverline}" />
-                        <TextBlock Grid.Column="2" Text="SOLD" Style="{StaticResource TextOverline}" />
-                        <TextBlock Grid.Column="3" Text="REVENUE" Style="{StaticResource TextOverline}" HorizontalAlignment="Right" />
-                        <TextBlock Grid.Column="4" Text="SHARE" Style="{StaticResource TextOverline}" Margin="12,0,0,0" />
-                    </Grid>
-
-                    <ItemsControl ItemsSource="{Binding TopItems}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border BorderBrush="{StaticResource DividerBrush}" BorderThickness="0,0,0,1" Padding="0,9">
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="1.6*" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="70" />
-                                            <ColumnDefinition Width="100" />
-                                            <ColumnDefinition Width="110" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Column="1" Text="{Binding CategoryName}" FontSize="12" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Column="2" Text="{Binding Quantity}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                        <TextBlock Grid.Column="3" Text="{Binding RevenueText}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                                        <Grid Grid.Column="4" Margin="12,0,0,0" VerticalAlignment="Center">
-                                            <Border Background="{StaticResource SurfaceMutedBrush}" Height="6" CornerRadius="3" />
-                                            <Border Width="{Binding ShareWidth}" Height="6" Background="{StaticResource Brand600Brush}" CornerRadius="3" HorizontalAlignment="Left" />
-                                        </Grid>
-                                    </Grid>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="30" Height="30" CornerRadius="9" Background="{StaticResource Brand50Brush}">
+                                    <Path Data="{StaticResource IconReports}" Width="15" Height="15" Stretch="Uniform"
+                                          Fill="{StaticResource Brand700Brush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                 </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
-            </Border>
+                                <TextBlock Text="Net sales" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="9,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding SalesText}" Style="{StaticResource TextNumeric}" Margin="0,10,0,0" />
+                            <TextBlock Text="{Binding PeriodLabel}" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Style="{StaticResource Card}" Padding="18" Margin="6,0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="30" Height="30" CornerRadius="9" Background="{StaticResource InfoSoftBrush}">
+                                    <Path Data="{StaticResource IconBilling}" Width="15" Height="15" Stretch="Uniform"
+                                          Fill="{StaticResource InfoBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="Bills settled" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="9,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding OrdersText}" Style="{StaticResource TextNumeric}" Margin="0,10,0,0" />
+                            <TextBlock Text="paid checks in period" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" Style="{StaticResource Card}" Padding="18" Margin="6,0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="30" Height="30" CornerRadius="9" Background="{StaticResource VioletSoftBrush}">
+                                    <Path Data="{StaticResource IconTag}" Width="15" Height="15" Stretch="Uniform"
+                                          Fill="{StaticResource VioletBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="Average bill" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="9,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding AverageText}" Style="{StaticResource TextNumeric}" Margin="0,10,0,0" />
+                            <TextBlock Text="per guest check" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="3" Style="{StaticResource Card}" Padding="18" Margin="6,0,0,0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="30" Height="30" CornerRadius="9" Background="{StaticResource SuccessSoftBrush}">
+                                    <Path Data="{StaticResource IconShield}" Width="15" Height="15" Stretch="Uniform"
+                                          Fill="{StaticResource SuccessBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="GST collected" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="9,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding TaxText}" Style="{StaticResource TextNumeric}" Margin="0,10,0,0" />
+                            <TextBlock Text="{Binding CgstText, StringFormat=CGST {0}}" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                    <StackPanel>
+                        <Grid>
+                            <StackPanel>
+                                <TextBlock Text="Daily sales" Style="{StaticResource TextH3}" />
+                                <TextBlock Text="{Binding PeakDayText, StringFormat=Peak · {0}}" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <Border Style="{StaticResource PillBrand}" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                <TextBlock Text="{Binding PeriodLabel}" FontSize="12" FontWeight="Bold"
+                                           Foreground="{StaticResource Brand800Brush}" VerticalAlignment="Center" />
+                            </Border>
+                        </Grid>
+
+                        <Border Height="1" Background="{StaticResource DividerBrush}" Margin="0,14,0,0" />
+
+                        <ItemsControl ItemsSource="{Binding Daily}" Margin="0,18,0,0">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <UniformGrid Rows="1" Columns="{Binding Days}" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ToolTip="{Binding TotalText}" Margin="1,0">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="160" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <Border Height="{Binding BarHeight}"
+                                                CornerRadius="4,4,2,2"
+                                                VerticalAlignment="Bottom"
+                                                Margin="3,0"
+                                                MinHeight="5">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="{StaticResource Brand600Brush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsPeak}" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource AmberBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                        </Border>
+                                        <TextBlock Grid.Row="1" Text="{Binding Label}" FontSize="8.5"
+                                                   Foreground="{StaticResource MutedLightBrush}"
+                                                   HorizontalAlignment="Center" Margin="0,7,0,0" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0,0,8,0">
+                        <StackPanel>
+                            <TextBlock Text="Payment mix" Style="{StaticResource TextH3}" />
+                            <TextBlock Text="How guests settled their bills" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+
+                            <ItemsControl ItemsSource="{Binding PaymentMix}" Margin="0,16,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,0,0,13">
+                                            <Grid>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Ellipse Width="8" Height="8" Fill="{Binding Color}" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Label}" FontSize="12" FontWeight="SemiBold" Margin="7,0,0,0" />
+                                                    <TextBlock Text="{Binding CountText}" FontSize="12" Foreground="{StaticResource MutedLightBrush}"
+                                                               Margin="8,0,0,0" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                    <TextBlock Text="{Binding TotalText}" FontSize="12" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding ShareText}" FontSize="12" Foreground="{StaticResource MutedBrush}"
+                                                               Width="38" TextAlignment="Right" />
+                                                </StackPanel>
+                                            </Grid>
+                                            <ProgressBar Value="{Binding SharePercent, Mode=OneWay}" Maximum="100"
+                                                         Style="{StaticResource MeterBar}"
+                                                         Foreground="{Binding Color}"
+                                                         Margin="0,6,0,0" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Style="{StaticResource Card}" Margin="8,0,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Category mix" Style="{StaticResource TextH3}" />
+                            <TextBlock Text="Where revenue came from" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+
+                            <ItemsControl ItemsSource="{Binding CategoryMix}" Margin="0,16,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Margin="0,0,0,13">
+                                            <Grid>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Ellipse Width="8" Height="8" Fill="{Binding Color}" VerticalAlignment="Center" />
+                                                    <TextBlock Text="{Binding Label}" FontSize="12" FontWeight="SemiBold" Margin="7,0,0,0" />
+                                                    <TextBlock Text="{Binding CountText}" FontSize="12" Foreground="{StaticResource MutedLightBrush}"
+                                                               Margin="8,0,0,0" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                    <TextBlock Text="{Binding TotalText}" FontSize="12" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding ShareText}" FontSize="12" Foreground="{StaticResource MutedBrush}"
+                                                               Width="38" TextAlignment="Right" />
+                                                </StackPanel>
+                                            </Grid>
+                                            <ProgressBar Value="{Binding SharePercent, Mode=OneWay}" Maximum="100"
+                                                         Style="{StaticResource MeterBar}"
+                                                         Foreground="{Binding Color}"
+                                                         Margin="0,6,0,0" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                    <StackPanel>
+                        <Grid>
+                            <StackPanel>
+                                <TextBlock Text="Best sellers" Style="{StaticResource TextH3}" />
+                                <TextBlock Text="Ranked by quantity sold in the period" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <Border Style="{StaticResource PillSuccess}" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                <TextBlock Text="TOP 8" FontSize="12" FontWeight="Bold"
+                                           Foreground="{StaticResource SuccessStrongBrush}" VerticalAlignment="Center" />
+                            </Border>
+                        </Grid>
+
+                        <Grid Margin="0,16,0,7">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="1.6*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="70" />
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="110" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="ITEM" Style="{StaticResource TextOverline}" />
+                            <TextBlock Grid.Column="1" Text="CATEGORY" Style="{StaticResource TextOverline}" />
+                            <TextBlock Grid.Column="2" Text="SOLD" Style="{StaticResource TextOverline}" />
+                            <TextBlock Grid.Column="3" Text="REVENUE" Style="{StaticResource TextOverline}" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Column="4" Text="SHARE" Style="{StaticResource TextOverline}" Margin="12,0,0,0" />
+                        </Grid>
+
+                        <ItemsControl ItemsSource="{Binding TopItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource DividerBrush}" BorderThickness="0,0,0,1" Padding="0,9">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="1.6*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="70" />
+                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="110" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Name}" FontSize="12.5" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="1" Text="{Binding CategoryName}" FontSize="12" Foreground="{StaticResource MutedBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Quantity}" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding RevenueText}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            <Grid Grid.Column="4" Margin="12,0,0,0" VerticalAlignment="Center">
+                                                <Border Background="{StaticResource SurfaceMutedBrush}" Height="6" CornerRadius="3" />
+                                                <Border Width="{Binding ShareWidth}" Height="6" Background="{StaticResource Brand600Brush}" CornerRadius="3" HorizontalAlignment="Left" />
+                                            </Grid>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- ========================================== -->
+            <!-- TAB 1: LEAKAGE & ANTI-FRAUD                -->
+            <!-- ========================================== -->
+            <StackPanel Visibility="{Binding IsLeakageTab, Converter={StaticResource BoolToVisibility}}">
+                <!-- Summary KPI Cards -->
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource Card}" Padding="18" Margin="0,0,6,0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="30" Height="30" CornerRadius="9" Background="{StaticResource VioletSoftBrush}">
+                                    <Path Data="{StaticResource IconTag}" Width="15" Height="15" Stretch="Uniform"
+                                          Fill="{StaticResource VioletBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="Total discounts given" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="9,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding TotalDiscountsText}" Style="{StaticResource TextNumeric}" Margin="0,10,0,0" />
+                            <TextBlock Text="{Binding DiscountCount, StringFormat={}{0} discount authorizations}" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Style="{StaticResource Card}" Padding="18" Margin="6,0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="30" Height="30" CornerRadius="9" Background="{StaticResource WarningSoftBrush}">
+                                    <Path Data="{StaticResource IconAlert}" Width="15" Height="15" Stretch="Uniform"
+                                          Fill="{StaticResource WarningStrongBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="Voids &amp; Cancellations" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="9,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding VoidCount}" Style="{StaticResource TextNumeric}" Margin="0,10,0,0" />
+                            <TextBlock Text="Items voided post-KOT" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" Style="{StaticResource Card}" Padding="18" Margin="6,0,0,0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <Border Width="30" Height="30" CornerRadius="9" Background="{StaticResource InfoSoftBrush}">
+                                    <Path Data="{StaticResource IconPrint}" Width="15" Height="15" Stretch="Uniform"
+                                          Fill="{StaticResource InfoBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <TextBlock Text="Bill Reprints logged" FontSize="12" Foreground="{StaticResource MutedBrush}" Margin="9,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding ReprintCount}" Style="{StaticResource TextNumeric}" Margin="0,10,0,0" />
+                            <TextBlock Text="Reprint watermark tracking active" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Detailed Audit Table -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                    <StackPanel>
+                        <Grid>
+                            <StackPanel>
+                                <TextBlock Text="Leakage &amp; Exception Events" Style="{StaticResource TextH3}" />
+                                <TextBlock Text="Audited ledger of voids, reprint events, and discount overrides" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+                            </StackPanel>
+                            <Border Style="{StaticResource PillBrand}" HorizontalAlignment="Right" VerticalAlignment="Top">
+                                <TextBlock Text="{Binding LeakageEvents.Count, StringFormat={}{0} EVENTS}" FontSize="12" FontWeight="Bold"
+                                           Foreground="{StaticResource Brand800Brush}" VerticalAlignment="Center" />
+                            </Border>
+                        </Grid>
+
+                        <Grid Margin="0,16,0,7">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="130" />
+                                <ColumnDefinition Width="110" />
+                                <ColumnDefinition Width="120" />
+                                <ColumnDefinition Width="120" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="100" />
+                                <ColumnDefinition Width="130" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="EVENT" Style="{StaticResource TextOverline}" />
+                            <TextBlock Grid.Column="1" Text="BILL #" Style="{StaticResource TextOverline}" />
+                            <TextBlock Grid.Column="2" Text="CASHIER" Style="{StaticResource TextOverline}" />
+                            <TextBlock Grid.Column="3" Text="APPROVER" Style="{StaticResource TextOverline}" />
+                            <TextBlock Grid.Column="4" Text="REASON / DETAIL" Style="{StaticResource TextOverline}" />
+                            <TextBlock Grid.Column="5" Text="AMOUNT" Style="{StaticResource TextOverline}" HorizontalAlignment="Right" />
+                            <TextBlock Grid.Column="6" Text="TIME" Style="{StaticResource TextOverline}" HorizontalAlignment="Right" />
+                        </Grid>
+
+                        <Border Height="1" Background="{StaticResource DividerBrush}" Margin="0,0,0,4" />
+
+                        <!-- Empty state -->
+                        <Border Padding="24" Visibility="{Binding HasLeakageEvents, Converter={StaticResource InverseBoolToVisibility}}">
+                            <TextBlock Text="No leakage or discount events recorded for this period."
+                                       Style="{StaticResource TextCaption}" HorizontalAlignment="Center" />
+                        </Border>
+
+                        <ItemsControl ItemsSource="{Binding LeakageEvents}"
+                                      Visibility="{Binding HasLeakageEvents, Converter={StaticResource BoolToVisibility}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="{StaticResource DividerBrush}" BorderThickness="0,0,0,1" Padding="0,10">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="130" />
+                                                <ColumnDefinition Width="110" />
+                                                <ColumnDefinition Width="120" />
+                                                <ColumnDefinition Width="120" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="130" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Event Pill -->
+                                            <Border CornerRadius="4" Padding="6,2" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                    Background="{StaticResource Brand50Brush}">
+                                                <TextBlock Text="{Binding EventType}" FontSize="11" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource Brand800Brush}" />
+                                            </Border>
+
+                                            <TextBlock Grid.Column="1" Text="{Binding BillNo}" FontSize="12" FontWeight="SemiBold"
+                                                       VerticalAlignment="Center" Foreground="{StaticResource InkMutedBrush}" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Actor}" FontSize="12" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="3" Text="{Binding Approver}" FontSize="12" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Brand700Brush}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="4" Text="{Binding Reason}" FontSize="12"
+                                                       Foreground="{StaticResource InkMutedBrush}" VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" ToolTip="{Binding Detail}" />
+                                            <TextBlock Grid.Column="5" Text="{Binding AmountText}" FontSize="12" FontWeight="SemiBold"
+                                                       HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="6" Text="{Binding TimeText}" FontSize="11"
+                                                       Foreground="{StaticResource MutedLightBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- ========================================== -->
+            <!-- TAB 2: DAY-END CLOSING (Z-REPORT)          -->
+            <!-- ========================================== -->
+            <StackPanel Visibility="{Binding IsDayEndTab, Converter={StaticResource BoolToVisibility}}">
+                <!-- Warnings & Notices -->
+                <Border Background="{StaticResource WarningSoftBrush}" BorderBrush="{StaticResource WarningStrongBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,14"
+                        Visibility="{Binding HasOpenOrders, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource IconAlert}" Width="16" Height="16" Stretch="Uniform"
+                              Fill="{StaticResource WarningStrongBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding OpenOrdersWarning}" FontSize="12.5" FontWeight="SemiBold"
+                                   Foreground="{StaticResource WarningStrongBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
+                <Border Background="{StaticResource InfoSoftBrush}" BorderBrush="{StaticResource InfoBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,14"
+                        Visibility="{Binding HasUnsynced, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource IconSync}" Width="16" Height="16" Stretch="Uniform"
+                              Fill="{StaticResource InfoBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding UnsyncedWarning}" FontSize="12.5" FontWeight="SemiBold"
+                                   Foreground="{StaticResource InfoBrush}" Margin="10,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Today's Financial Overview Cards -->
+                <Grid Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource Card}" Padding="18" Margin="0,0,6,0">
+                        <StackPanel>
+                            <TextBlock Text="Today's sales" FontSize="12" Foreground="{StaticResource MutedBrush}" />
+                            <TextBlock Text="{Binding DayEndTotalSalesText}" Style="{StaticResource TextNumeric}" Margin="0,8,0,0" />
+                            <TextBlock Text="{Binding DayEndDateText}" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="1" Style="{StaticResource Card}" Padding="18" Margin="6,0">
+                        <StackPanel>
+                            <TextBlock Text="Tax collected (GST)" FontSize="12" Foreground="{StaticResource MutedBrush}" />
+                            <TextBlock Text="{Binding DayEndTaxText}" Style="{StaticResource TextNumeric}" Margin="0,8,0,0" />
+                            <TextBlock Text="CGST + SGST liabilities" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="2" Style="{StaticResource Card}" Padding="18" Margin="6,0">
+                        <StackPanel>
+                            <TextBlock Text="Discounts authorized" FontSize="12" Foreground="{StaticResource MutedBrush}" />
+                            <TextBlock Text="{Binding DayEndDiscountText}" Style="{StaticResource TextNumeric}" Margin="0,8,0,0" />
+                            <TextBlock Text="Manager overrides" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Grid.Column="3" Style="{StaticResource Card}" Padding="18" Margin="6,0,0,0">
+                        <StackPanel>
+                            <TextBlock Text="Expected cash in drawer" FontSize="12" Foreground="{StaticResource MutedBrush}" />
+                            <TextBlock Text="{Binding DayEndSystemCashText}" Style="{StaticResource TextNumeric}" Margin="0,8,0,0" />
+                            <TextBlock Text="From settled cash orders" Style="{StaticResource TextCaption}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Physical Cash Reconciliation Card -->
+                <Border Style="{StaticResource Card}" Margin="0,0,0,16">
+                    <StackPanel>
+                        <TextBlock Text="Physical Cash Drawer Count" Style="{StaticResource TextH3}" />
+                        <TextBlock Text="Count notes and coins currently in the till to verify drawer balance."
+                                   Style="{StaticResource TextCaption}" Margin="0,2,0,16" />
+
+                        <Border Height="1" Background="{StaticResource DividerBrush}" Margin="0,0,0,16" />
+
+                        <!-- Denomination Entry Grid -->
+                        <Grid Margin="0,0,0,16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <!-- ₹500 -->
+                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="₹500 Notes" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,4" />
+                                <TextBox Text="{Binding Count500, UpdateSourceTrigger=PropertyChanged}" Height="36" Style="{StaticResource SearchTextBox}" />
+                            </StackPanel>
+
+                            <!-- ₹200 -->
+                            <StackPanel Grid.Row="0" Grid.Column="1" Margin="8,0,8,0">
+                                <TextBlock Text="₹200 Notes" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,4" />
+                                <TextBox Text="{Binding Count200, UpdateSourceTrigger=PropertyChanged}" Height="36" Style="{StaticResource SearchTextBox}" />
+                            </StackPanel>
+
+                            <!-- ₹100 -->
+                            <StackPanel Grid.Row="0" Grid.Column="2" Margin="8,0,8,0">
+                                <TextBlock Text="₹100 Notes" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,4" />
+                                <TextBox Text="{Binding Count100, UpdateSourceTrigger=PropertyChanged}" Height="36" Style="{StaticResource SearchTextBox}" />
+                            </StackPanel>
+
+                            <!-- ₹50 -->
+                            <StackPanel Grid.Row="0" Grid.Column="3" Margin="8,0,0,0">
+                                <TextBlock Text="₹50 Notes" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,4" />
+                                <TextBox Text="{Binding Count50, UpdateSourceTrigger=PropertyChanged}" Height="36" Style="{StaticResource SearchTextBox}" />
+                            </StackPanel>
+
+                            <!-- ₹20 -->
+                            <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="₹20 Notes" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,4" />
+                                <TextBox Text="{Binding Count20, UpdateSourceTrigger=PropertyChanged}" Height="36" Style="{StaticResource SearchTextBox}" />
+                            </StackPanel>
+
+                            <!-- ₹10 -->
+                            <StackPanel Grid.Row="2" Grid.Column="1" Margin="8,0,8,0">
+                                <TextBlock Text="₹10 Notes" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,4" />
+                                <TextBox Text="{Binding Count10, UpdateSourceTrigger=PropertyChanged}" Height="36" Style="{StaticResource SearchTextBox}" />
+                            </StackPanel>
+
+                            <!-- Coins -->
+                            <StackPanel Grid.Row="2" Grid.Column="2" Margin="8,0,8,0">
+                                <TextBlock Text="Total Coins (₹)" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource MutedBrush}" Margin="0,0,0,4" />
+                                <TextBox Text="{Binding CountCoins, UpdateSourceTrigger=PropertyChanged}" Height="36" Style="{StaticResource SearchTextBox}" />
+                            </StackPanel>
+
+                            <!-- Total Counted Box -->
+                            <Border Grid.Row="2" Grid.Column="3" Margin="8,0,0,0" Background="{StaticResource SurfaceMutedBrush}"
+                                    CornerRadius="6" Padding="12,6">
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Physical Total" FontSize="11" Foreground="{StaticResource MutedBrush}" />
+                                    <TextBlock Text="{Binding CountedCashText}" FontSize="16" FontWeight="Bold"
+                                               Foreground="{StaticResource Brand800Brush}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <!-- Reconciliation Variance Banner -->
+                        <Border CornerRadius="8" Padding="16" Margin="0,0,0,16">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Background" Value="{StaticResource WarningSoftBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsCashBalanced}" Value="True">
+                                            <Setter Property="Background" Value="{StaticResource SuccessSoftBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Grid>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Width="28" Height="28" CornerRadius="14" Background="White">
+                                        <Path Data="{StaticResource IconCheck}" Width="14" Height="14" Stretch="Uniform"
+                                              Fill="{StaticResource SuccessBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel Margin="12,0,0,0">
+                                        <TextBlock Text="Drawer Cash Variance" FontSize="11" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource InkMutedBrush}" />
+                                        <TextBlock Text="{Binding CashVarianceText}" FontSize="18" FontWeight="Bold"
+                                                   Foreground="{StaticResource InkBrush}" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding DayEndSystemCashText, StringFormat=Expected: {0}}"
+                                               FontSize="12" Foreground="{StaticResource MutedBrush}" TextAlignment="Right" />
+                                    <TextBlock Text="{Binding CountedCashText, StringFormat=Counted: {0}}"
+                                               FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource InkBrush}" TextAlignment="Right" />
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Closure Remarks -->
+                        <TextBlock Text="Shift / Day Closure Remarks (Optional)" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <TextBox Text="{Binding ClosureNotes, UpdateSourceTrigger=PropertyChanged}"
+                                 Height="54" Style="{StaticResource SearchTextBox}" Margin="0,0,0,16"
+                                 Tag="e.g. Minor shortage explained by unrecorded tea expense ₹20…" />
+
+                        <!-- Closure Action Button -->
+                        <Button Style="{StaticResource PrimaryButton}" Height="46"
+                                Command="{Binding CompleteDayEndClosureCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="{StaticResource IconCheck}" Width="16" Height="16" Stretch="Uniform"
+                                      Fill="White" VerticalAlignment="Center" />
+                                <TextBlock Text="Close Business Day &amp; Generate Z-Report" FontSize="13" FontWeight="Bold" Margin="8,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
 
             <TextBlock Text="{Binding ExportHint}" Style="{StaticResource TextCaption}" HorizontalAlignment="Center" Margin="0,2,0,6" />
         </StackPanel>
